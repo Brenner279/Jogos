@@ -1,498 +1,122 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometria Espacial no Ar</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    
-    <!-- MediaPipe Hands -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protótipo VR - Interação com o Olhar</title>
+    <!-- Importando a biblioteca A-Frame para WebVR -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; color: white; font-family: 'Inter', sans-serif; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        .ui-layer { position: relative; z-index: 10; pointer-events: none; }
-        .pointer-events-auto { pointer-events: auto; }
-        
-        /* Estilo Holográfico (Glassmorphism) */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
-        }
-        
-        .math-formula {
-            font-family: 'Courier New', Courier, monospace;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #00ffcc;
-            letter-spacing: 0.5px;
-        }
-
-        .highlight { color: #00ffcc; font-weight: bold; }
-        
-        /* Câmara Picture-in-Picture */
-        #camera-view {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 240px;
-            height: 180px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            z-index: 20;
-            background: #000;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            transform: scaleX(-1); /* Espelhar a câmara visualmente */
-        }
-
-        #camera-canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        #loading-ai {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.8);
-            z-index: 30;
-            font-size: 14px;
-            font-weight: bold;
-            color: #00ffcc;
-            text-align: center;
-            padding: 20px;
-            transform: scaleX(-1); /* Desfazer espelho para o texto ler-se bem */
-        }
+        body { margin: 0; padding: 0; overflow: hidden; }
     </style>
-</head>
-<body class="antialiased selection:bg-teal-500 selection:text-white">
-
-    <!-- Container do 3D -->
-    <div id="canvas-container"></div>
-
-    <!-- Feed da Câmara e MediaPipe -->
-    <div id="camera-view" class="pointer-events-auto">
-        <video id="input_video" style="display:none;"></video>
-        <canvas id="camera-canvas" width="640" height="480"></canvas>
-        <div id="loading-ai">A ligar câmara e IA...<br>Por favor, aguarde.</div>
-    </div>
-
-    <!-- UI - Camada Superior -->
-    <div class="ui-layer flex flex-col md:flex-row h-screen w-screen p-4 md:p-6 justify-between gap-4">
-        
-        <!-- Painel de Controlos (Esquerda/Topo) -->
-        <div class="glass-panel pointer-events-auto w-full md:w-80 rounded-2xl p-5 flex flex-col gap-4 max-h-[40vh] md:max-h-none overflow-y-auto">
-            <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent mb-1">Geometria no Ar</h1>
-                <p class="text-xs text-gray-400">Interaja usando a sua câmara (MediaPipe)</p>
-            </div>
-
-            <div class="space-y-2">
-                <p class="text-sm font-semibold text-gray-300">1. Escolha o Sólido:</p>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="changeSolid('cylinder')" class="solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all">Cilindro</button>
-                    <button onclick="changeSolid('cone')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Cone</button>
-                    <button onclick="changeSolid('sphere')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Esfera</button>
-                    <button onclick="changeSolid('prism')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Prisma (Quadrado)</button>
-                </div>
-            </div>
-
-            <div class="mt-auto bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
-                <h3 class="text-sm font-bold text-blue-300 mb-2 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    Gestos no Ar
-                </h3>
-                <p class="text-xs text-gray-300 leading-relaxed">
-                    Mostre a mão à câmara. Junte o <b>polegar</b> e o <b>indicador</b> ("pinça") e mova a mão:<br><br>
-                    • <span class="highlight">↕ Para Cima/Baixo:</span> Altera a altura.<br>
-                    • <span class="highlight">↔ Esquerda/Direita:</span> Altera o raio/base.
-                </p>
-                <div id="pinch-status" class="mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors">
-                    MÃO ABERTA
-                </div>
-            </div>
-        </div>
-
-        <!-- Painel de Dados e Fórmulas (Direita/Fundo) -->
-        <div class="glass-panel pointer-events-auto w-full md:w-96 rounded-2xl p-5 flex flex-col gap-5 self-end md:self-start max-h-[55vh] md:max-h-[90vh] overflow-y-auto">
-            
-            <div class="flex justify-between items-end border-b border-white/10 pb-2">
-                <h2 id="solid-title" class="text-xl font-bold text-white tracking-wide uppercase">Cilindro</h2>
-                <span class="text-xs text-teal-400 animate-pulse">Em Tempo Real</span>
-            </div>
-
-            <!-- Dimensões -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-radius">
-                    <p class="text-xs text-gray-400 mb-1" id="label-radius">Raio (r)</p>
-                    <p class="text-2xl font-light text-white"><span id="val-radius">2.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
-                </div>
-                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-height">
-                    <p class="text-xs text-gray-400 mb-1">Altura (h)</p>
-                    <p class="text-2xl font-light text-white"><span id="val-height">4.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
-                </div>
-            </div>
-
-            <!-- Volume -->
-            <div>
-                <h3 class="text-sm font-semibold text-teal-300 mb-2">Cálculo do Volume</h3>
-                <div class="math-formula text-sm text-gray-200 mb-2" id="form-volume">
-                    V = &pi; &cdot; r&sup2; &cdot; h
-                </div>
-                <div class="flex justify-between items-baseline bg-teal-900/20 p-2 rounded px-3 border border-teal-900/50">
-                    <span class="text-xs text-gray-400">Resultado:</span>
-                    <p class="text-lg font-bold text-teal-400"><span id="res-volume">50.27</span> m&sup3;</p>
-                </div>
-            </div>
-
-            <!-- Área -->
-            <div>
-                <h3 class="text-sm font-semibold text-purple-300 mb-2">Cálculo da Área Total</h3>
-                <div class="math-formula text-sm text-gray-200 mb-2" id="form-area">
-                    A = 2&pi;r(r + h)
-                </div>
-                <div class="flex justify-between items-baseline bg-purple-900/20 p-2 rounded px-3 border border-purple-900/50">
-                    <span class="text-xs text-gray-400">Resultado:</span>
-                    <p class="text-lg font-bold text-purple-400"><span id="res-area">75.40</span> m&sup2;</p>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
     <script>
-        // ==========================================
-        // ESTADO GLOBAL
-        // ==========================================
-        let currentSolid = 'cylinder';
-        let dimensions = { r: 2.0, h: 4.0 }; 
-        const PI = Math.PI;
-        
-        // Estado de Gestos
-        let isPinching = false;
-        let startPinchPos = { x: 0, y: 0 };
-        let startDimensions = { r: 0, h: 0 };
-        let firstFrameLoaded = false;
-
-        // ==========================================
-        // CONFIGURAÇÃO THREE.JS
-        // ==========================================
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.02);
-
-        const camera3D = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera3D.position.set(8, 6, 10);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        container.appendChild(renderer.domElement);
-
-        const controls = new THREE.OrbitControls(camera3D, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-
-        // Iluminação
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const spotLight = new THREE.SpotLight(0x00ffcc, 1.5);
-        spotLight.position.set(10, 15, 10);
-        spotLight.castShadow = true;
-        scene.add(spotLight);
-        scene.add(new THREE.SpotLight(0xff00ff, 1.0).position.set(-10, -5, -10));
-
-        // Grelha
-        const gridHelper = new THREE.GridHelper(30, 30, 0x00ffcc, 0x222222);
-        gridHelper.position.y = -4;
-        gridHelper.material.opacity = 0.2;
-        gridHelper.material.transparent = true;
-        scene.add(gridHelper);
-
-        // Materiais
-        const solidMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0x00ffcc, metalness: 0.1, roughness: 0.1, transmission: 0.8,
-            thickness: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
-            emissive: 0x003322, emissiveIntensity: 0.2
-        });
-        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
-
-        let mesh, wireframe;
-        const group = new THREE.Group();
-        scene.add(group);
-
-        function update3DObject() {
-            if (mesh) { group.remove(mesh); mesh.geometry.dispose(); }
-            if (wireframe) { group.remove(wireframe); wireframe.geometry.dispose(); }
-
-            let geometry;
-            const safeR = Math.max(0.1, dimensions.r);
-            const safeH = Math.max(0.1, dimensions.h);
-
-            switch(currentSolid) {
-                case 'cylinder': geometry = new THREE.CylinderGeometry(safeR, safeR, safeH, 32); break;
-                case 'cone': geometry = new THREE.ConeGeometry(safeR, safeH, 32); break;
-                case 'sphere': geometry = new THREE.SphereGeometry(safeR, 32, 32); break;
-                case 'prism': geometry = new THREE.BoxGeometry(safeR * 2, safeH, safeR * 2); break;
-            }
-            
-            mesh = new THREE.Mesh(geometry, solidMaterial);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
-            
-            group.add(mesh); group.add(wireframe);
-        }
-
-        // ==========================================
-        // ATUALIZAÇÃO DA INTERFACE (UI)
-        // ==========================================
-        function updateUI() {
-            const { r, h } = dimensions;
-            
-            document.getElementById('val-radius').innerText = r.toFixed(2);
-            document.getElementById('val-height').innerText = h.toFixed(2);
-
-            let vol = 0, area = 0, strVol = '', strArea = '';
-
-            switch(currentSolid) {
-                case 'cylinder':
-                    document.getElementById('solid-title').innerText = 'Cilindro';
-                    document.getElementById('label-radius').innerText = 'Raio (r)';
-                    document.getElementById('box-height').style.display = 'block';
-                    vol = PI * r * r * h;
-                    area = 2 * PI * r * (r + h);
-                    strVol = `V = &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = 2&pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + ${h.toFixed(1)})`;
-                    break;
-                case 'cone':
-                    document.getElementById('solid-title').innerText = 'Cone';
-                    document.getElementById('label-radius').innerText = 'Raio Base (r)';
-                    document.getElementById('box-height').style.display = 'block';
-                    vol = (1/3) * PI * r * r * h;
-                    area = PI * r * (r + Math.sqrt(r*r + h*h));
-                    strVol = `V = &frac13; &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = &pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + g)`;
-                    break;
-                case 'sphere':
-                    document.getElementById('solid-title').innerText = 'Esfera';
-                    document.getElementById('label-radius').innerText = 'Raio (r)';
-                    document.getElementById('box-height').style.display = 'none';
-                    vol = (4/3) * PI * Math.pow(r, 3);
-                    area = 4 * PI * r * r;
-                    strVol = `V = &frac43; &pi; &cdot; ${r.toFixed(1)}&sup3;`;
-                    strArea = `A = 4&pi; &cdot; ${r.toFixed(1)}&sup2;`;
-                    break;
-                case 'prism':
-                    document.getElementById('solid-title').innerText = 'Prisma (Quadrado)';
-                    document.getElementById('label-radius').innerText = 'Lado Base (L)';
-                    document.getElementById('box-height').style.display = 'block';
-                    const L = r * 2; 
-                    vol = L * L * h;
-                    area = 2 * L * L + 4 * L * h;
-                    strVol = `V = ${L.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = 2(${L.toFixed(1)}&sup2;) + 4(${L.toFixed(1)} &cdot; ${h.toFixed(1)})`;
-                    break;
-            }
-
-            document.getElementById('form-volume').innerHTML = strVol;
-            document.getElementById('res-volume').innerText = vol.toFixed(2);
-            document.getElementById('form-area').innerHTML = strArea;
-            document.getElementById('res-area').innerText = area.toFixed(2);
-        }
-
-        window.changeSolid = function(type) {
-            currentSolid = type;
-            dimensions = (type === 'sphere') ? { r: 2.5, h: 4 } : { r: 2.0, h: 4.0 };
-            
-            document.querySelectorAll('.solid-btn').forEach(btn => btn.className = "solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all");
-            event.target.className = "solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all";
-            
-            const colors = { cylinder: 0x00ffcc, cone: 0xff3366, sphere: 0x3366ff, prism: 0xffcc00 };
-            solidMaterial.color.setHex(colors[type]);
-            spotLight.color.setHex(colors[type]);
-
-            update3DObject();
-            updateUI();
-        };
-
-        // ==========================================
-        // MEDIAPIPE HANDS - LÓGICA DE RASTREAMENTO
-        // ==========================================
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('camera-canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const statusBox = document.getElementById('pinch-status');
-        const boxRadius = document.getElementById('box-radius');
-        const boxHeight = document.getElementById('box-height');
-
-        function onResults(results) {
-            if (!firstFrameLoaded) {
-                document.getElementById('loading-ai').style.display = 'none';
-                firstFrameLoaded = true;
-            }
-
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
+        // Componente customizado para gerenciar a interação com a árvore
+        AFRAME.registerComponent('interacao-arvore', {
+            init: function () {
+                let el = this.el; // O elemento da árvore
+                let luzAmbiente = document.querySelector('#luz-ambiente');
+                let painelInfo = document.querySelector('#painel-info');
+                let copaArvore = document.querySelector('#copa-arvore');
                 
-                // Pontos 4 (Ponta do Polegar) e 8 (Ponta do Indicador)
-                const thumb = landmarks[4];
-                const index = landmarks[8];
+                // Evento disparado quando o cursor (olhar) entra no elemento
+                el.addEventListener('mouseenter', function () {
+                    // 1. Escurece o ambiente
+                    luzAmbiente.setAttribute('animation', 'property: light.intensity; to: 0.2; dur: 500; easing: easeOutQuad');
+                    
+                    // 2. Destaca a árvore (efeito emissivo)
+                    copaArvore.setAttribute('animation__cor', 'property: material.emissive; to: #2e8b57; dur: 500');
+                    copaArvore.setAttribute('animation__escala', 'property: scale; to: 1.05 1.05 1.05; dur: 500');
+                    
+                    // 3. Mostra o painel com os cálculos
+                    painelInfo.setAttribute('visible', 'true');
+                    painelInfo.setAttribute('animation', 'property: material.opacity; from: 0; to: 0.85; dur: 500');
+                    // Anima o texto para aparecer
+                    let textos = painelInfo.querySelectorAll('a-text');
+                    textos.forEach(t => t.setAttribute('animation', 'property: opacity; from: 0; to: 1; dur: 500'));
+                });
 
-                // Distância Euclidiana 3D
-                const dx = thumb.x - index.x;
-                const dy = thumb.y - index.y;
-                const dz = thumb.z - index.z;
-                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-
-                const currentPinch = dist < 0.07; // Limiar de pinça
-                const midX = (thumb.x + index.x) / 2;
-                const midY = (thumb.y + index.y) / 2;
-
-                // Desenhar o esqueleto da mão (Verde se beliscar, Branco se aberto)
-                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: currentPinch ? '#00ffcc' : '#ffffff', lineWidth: 2 });
-                drawLandmarks(canvasCtx, landmarks, { color: currentPinch ? '#00ffcc' : '#ff0000', lineWidth: 1, radius: 2 });
-
-                if (currentPinch) {
-                    if (!isPinching) {
-                        // Iniciar o Arraste
-                        isPinching = true;
-                        startPinchPos = { x: midX, y: midY };
-                        startDimensions = { ...dimensions };
-                        
-                        // Atualizar UI Visual
-                        statusBox.innerText = "A ARRASTAR SÓLIDO!";
-                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-teal-500 text-white transition-colors";
-                        solidMaterial.emissiveIntensity = 0.8; // Fazer o sólido brilhar
-                    } else {
-                        // Durante o Arraste
-                        const deltaX = midX - startPinchPos.x;
-                        const deltaY = midY - startPinchPos.y;
-
-                        // Sensibilidade do Gesto (Ajustada para o ecrã)
-                        // webcam é espelhada. Mover fisicamente para a direita = deltaX negativo.
-                        let newR = startDimensions.r - (deltaX * 15);
-                        dimensions.r = Math.max(0.5, Math.min(8.0, newR));
-
-                        // Eixo Y (Cima é Menor Y, Baixo é Maior Y)
-                        if (currentSolid !== 'sphere') {
-                            let newH = startDimensions.h - (deltaY * 20);
-                            dimensions.h = Math.max(0.5, Math.min(10.0, newH));
-                        }
-
-                        // Highlights na UI se estiver a alterar intensamente
-                        if(Math.abs(deltaX) > 0.05) boxRadius.classList.add('border-teal-500', 'bg-teal-900/40');
-                        else boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
-                        
-                        if(Math.abs(deltaY) > 0.05 && currentSolid !== 'sphere') boxHeight.classList.add('border-teal-500', 'bg-teal-900/40');
-                        else boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
-
-                        update3DObject();
-                        updateUI();
-                    }
-                } else {
-                    if (isPinching) {
-                        // Soltar o Gesto
-                        isPinching = false;
-                        statusBox.innerText = "MÃO ABERTA";
-                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors";
-                        solidMaterial.emissiveIntensity = 0.2;
-                        boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
-                        boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
-                    }
-                }
-            } else {
-                // Sem mãos detetadas
-                isPinching = false;
-                statusBox.innerText = "MÃO NÃO DETETADA";
-                statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-gray-500/20 text-gray-400 transition-colors";
-                solidMaterial.emissiveIntensity = 0.2;
+                // Evento disparado quando o cursor (olhar) sai do elemento
+                el.addEventListener('mouseleave', function () {
+                    // 1. Clareia o ambiente de volta ao normal
+                    luzAmbiente.setAttribute('animation', 'property: light.intensity; to: 1.2; dur: 500; easing: easeOutQuad');
+                    
+                    // 2. Remove o destaque da árvore
+                    copaArvore.setAttribute('animation__cor', 'property: material.emissive; to: #000000; dur: 500');
+                    copaArvore.setAttribute('animation__escala', 'property: scale; to: 1 1 1; dur: 500');
+                    
+                    // 3. Esconde o painel
+                    painelInfo.setAttribute('visible', 'false');
+                });
             }
-            canvasCtx.restore();
-        }
-
-        // Inicialização do MediaPipe
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-        
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.5
         });
-        hands.onResults(onResults);
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 640,
-            height: 480
-        });
-        
-        // Iniciar câmara automaticamente
-        camera.start().catch(err => {
-            document.getElementById('loading-ai').innerHTML = "<span class='text-red-400'>Erro ao aceder à câmara.<br>Permita o acesso no navegador.</span>";
-        });
-
-        // ==========================================
-        // LOOP DE ANIMAÇÃO PRINCIPAL (THREE.JS)
-        // ==========================================
-        window.addEventListener('resize', () => {
-            camera3D.aspect = window.innerWidth / window.innerHeight;
-            camera3D.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Suaviza escala inicial
-            if (group.scale.x < 1) {
-                group.scale.x += (1 - group.scale.x) * 0.1;
-                group.scale.y += (1 - group.scale.y) * 0.1;
-                group.scale.z += (1 - group.scale.z) * 0.1;
-            }
-
-            // Flutuação subtil
-            if (!isPinching) {
-                group.rotation.y += 0.003;
-                group.position.y = Math.sin(Date.now() * 0.002) * 0.1;
-            }
-
-            controls.update();
-            renderer.render(scene, camera3D);
-        }
-
-        // Arranque
-        update3DObject();
-        updateUI();
-        animate();
-
     </script>
+</head>
+<body>
+    <!-- Cena principal do A-Frame -->
+    <a-scene background="color: #87CEEB">
+        <!-- Gerenciamento de Assets (Texturas poderiam ir aqui) -->
+        <a-assets>
+            <a-mixin id="texto-padrao" color="#FFFFFF" align="left" baseline="top"></a-mixin>
+        </a-assets>
+
+        <!-- Iluminação -->
+        <a-light id="luz-ambiente" type="ambient" color="#FFF" intensity="1.2"></a-light>
+        <a-light type="directional" position="-1 2 1" intensity="0.5" castShadow="true"></a-light>
+
+        <!-- Câmera com Cursor Baseado no Olhar (Gaze) -->
+        <a-entity position="0 1.6 5">
+            <a-camera look-controls wasd-controls>
+                <!-- O cursor circular no centro da tela -->
+                <a-entity cursor="fuse: true; fuseTimeout: 100"
+                          position="0 0 -1"
+                          geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                          material="color: white; shader: flat; opacity: 0.8"
+                          raycaster="objects: .interativo"
+                          animation__fusing="property: scale; startEvents: fusing; easing: easeInCubic; dur: 100; from: 1 1 1; to: 0.5 0.5 0.5"
+                          animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 100; to: 1 1 1">
+                </a-entity>
+            </a-camera>
+        </a-entity>
+
+        <!-- CENÁRIO BASE -->
+        <!-- Calçadão (Chão) -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="30" height="15" color="#D2B48C"></a-plane>
+        <!-- Rio / Água -->
+        <a-plane position="25 0 0" rotation="-90 0 0" width="30" height="30" color="#4682B4" material="opacity: 0.8; transparent: true"></a-plane>
+        <!-- Píer de madeira simples (referência da foto) -->
+        <a-box position="12 0.5 2" width="5" height="0.2" depth="15" color="#8B4513"></a-box>
+
+        <!-- ENTIDADE PRINCIPAL: A ÁRVORE (Com classe 'interativo' para o raycaster) -->
+        <a-entity position="-3 0 0" class="interativo" interacao-arvore>
+            
+            <!-- Tronco: Cilindro -->
+            <a-cylinder position="0 1 0" radius="0.4" height="2" color="#5C4033"></a-cylinder>
+            
+            <!-- Copa: Esfera (O alvo principal do olhar) -->
+            <a-sphere id="copa-arvore" position="0 4 0" radius="3" color="#228B22" material="roughness: 0.8"></a-sphere>
+
+            <!-- PAINEL DE INFORMAÇÕES (Oculto por padrão) -->
+            <a-entity id="painel-info" position="4.5 4 0" rotation="0 -15 0" visible="false">
+                <!-- Fundo do painel -->
+                <a-plane width="5.5" height="3.5" color="#000000" material="opacity: 0.8; transparent: true"></a-plane>
+                
+                <!-- Textos e Cálculos -->
+                <a-text value="ANALISE BOTANICA E GEOMETRICA" position="-2.5 1.4 0.01" color="#FFD700" width="6" font="mozillavr"></a-text>
+                
+                <a-text value="Forma de Representacao:" position="-2.5 0.9 0.01" width="5" mixin="texto-padrao"></a-text>
+                <a-text value="Esfera (Copa) sobre Cilindro (Tronco)" position="-2.5 0.6 0.01" width="5" color="#ADD8E6"></a-text>
+                
+                <a-text value="Medidas Capturadas (Ficticias):" position="-2.5 0.1 0.01" width="5" mixin="texto-padrao"></a-text>
+                <a-text value="- Raio da Copa (r): 3.0 metros\n- Altura visivel do Tronco (t): 1.0 metro" position="-2.5 -0.2 0.01" width="5" color="#ADD8E6"></a-text>
+                
+                <a-text value="Calculo da Altura Total (H):" position="-2.5 -0.8 0.01" width="5" mixin="texto-padrao"></a-text>
+                <a-text value="H = t + (r * 2)" position="-2.5 -1.1 0.01" width="5" color="#90EE90"></a-text>
+                <a-text value="H = 1.0 + (3.0 * 2) = 7.0 metros" position="-2.5 -1.4 0.01" width="5" color="#90EE90" font="mozillavr"></a-text>
+            </a-entity>
+
+        </a-entity>
+
+    </a-scene>
 </body>
 </html>
 
