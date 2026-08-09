@@ -2,393 +2,496 @@
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtro de Máscara por Gestos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Geometria Espacial no Ar</title>
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Bibliotecas do MediaPipe -->
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- MediaPipe Hands -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-
-        body {
-            font-family: 'Orbitron', sans-serif;
-            background-color: #050505;
-            color: #ffffff;
-            margin: 0;
-            overflow: hidden;
-            user-select: none;
+        body { margin: 0; overflow: hidden; background-color: #050505; color: white; font-family: 'Inter', sans-serif; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        .ui-layer { position: relative; z-index: 10; pointer-events: none; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        /* Estilo Holográfico (Glassmorphism) */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+        
+        .math-formula {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #00ffcc;
+            letter-spacing: 0.5px;
         }
 
-        #game-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #output_canvas {
+        .highlight { color: #00ffcc; font-weight: bold; }
+        
+        /* Câmara Picture-in-Picture */
+        #camera-view {
             position: absolute;
-            top: 0;
-            left: 0;
+            bottom: 20px;
+            left: 20px;
+            width: 240px;
+            height: 180px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 20;
+            background: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transform: scaleX(-1); /* Espelhar a câmara visualmente */
+        }
+
+        #camera-canvas {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            z-index: 1;
         }
 
-        .ui-layer {
+        #loading-ai {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 10;
-            pointer-events: none;
+            inset: 0;
             display: flex;
-            flex-direction: column;
-            padding: 2rem;
-            box-sizing: border-box;
-        }
-
-        .glass-panel {
-            background: rgba(20, 20, 20, 0.6);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 1rem;
-        }
-
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-left-color: #ff3366;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Efeito de Flash na mudança de máscara */
-        #flash-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            opacity: 0;
-            z-index: 5;
-            pointer-events: none;
-            transition: opacity 0.3s ease-out;
+            justify-content: center;
+            background: rgba(0,0,0,0.8);
+            z-index: 30;
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ffcc;
+            text-align: center;
+            padding: 20px;
+            transform: scaleX(-1); /* Desfazer espelho para o texto ler-se bem */
         }
     </style>
 </head>
-<body>
+<body class="antialiased selection:bg-teal-500 selection:text-white">
 
-    <div id="game-container">
-        <!-- Vídeo escondido para processamento -->
-        <video id="input_video" class="hidden" autoplay playsinline></video>
+    <!-- Container do 3D -->
+    <div id="canvas-container"></div>
+
+    <!-- Feed da Câmara e MediaPipe -->
+    <div id="camera-view" class="pointer-events-auto">
+        <video id="input_video" style="display:none;"></video>
+        <canvas id="camera-canvas" width="640" height="480"></canvas>
+        <div id="loading-ai">A ligar câmara e IA...<br>Por favor, aguarde.</div>
+    </div>
+
+    <!-- UI - Camada Superior -->
+    <div class="ui-layer flex flex-col md:flex-row h-screen w-screen p-4 md:p-6 justify-between gap-4">
         
-        <!-- Canvas principal de renderização -->
-        <canvas id="output_canvas"></canvas>
-        
-        <!-- Camada de Flash para transições -->
-        <div id="flash-overlay"></div>
+        <!-- Painel de Controlos (Esquerda/Topo) -->
+        <div class="glass-panel pointer-events-auto w-full md:w-80 rounded-2xl p-5 flex flex-col gap-4 max-h-[40vh] md:max-h-none overflow-y-auto">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent mb-1">Geometria no Ar</h1>
+                <p class="text-xs text-gray-400">Interaja usando a sua câmara (MediaPipe)</p>
+            </div>
 
-        <!-- Interface do Utilizador -->
-        <div class="ui-layer">
-            <div class="flex justify-between w-full">
-                <div class="glass-panel px-6 py-3">
-                    <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#ff3366] to-[#ff9933]">FILTRO DINÂMICO</h1>
-                    <p class="text-xs text-gray-400 mt-1" id="status-text">A detetar rosto e mãos...</p>
-                </div>
-
-                <div class="glass-panel px-4 py-3 text-right max-w-[250px]">
-                    <div class="text-sm font-bold mb-1 text-white">COMO USAR</div>
-                    <div class="text-xs text-gray-300">Levante a mão. <br><b>Abra e feche a mão</b> (punho cerrado) para alterar a máscara holográfica.</div>
+            <div class="space-y-2">
+                <p class="text-sm font-semibold text-gray-300">1. Escolha o Sólido:</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="changeSolid('cylinder')" class="solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all">Cilindro</button>
+                    <button onclick="changeSolid('cone')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Cone</button>
+                    <button onclick="changeSolid('sphere')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Esfera</button>
+                    <button onclick="changeSolid('prism')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Prisma (Quadrado)</button>
                 </div>
             </div>
 
-            <!-- Ecrã de Carregamento -->
-            <div id="loading" class="glass-panel p-8">
-                <div class="spinner"></div>
-                <div class="text-sm font-bold tracking-widest text-[#ff3366]">A INICIAR MOTOR DE IA...</div>
+            <div class="mt-auto bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
+                <h3 class="text-sm font-bold text-blue-300 mb-2 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    Gestos no Ar
+                </h3>
+                <p class="text-xs text-gray-300 leading-relaxed">
+                    Mostre a mão à câmara. Junte o <b>polegar</b> e o <b>indicador</b> ("pinça") e mova a mão:<br><br>
+                    • <span class="highlight">↕ Para Cima/Baixo:</span> Altera a altura.<br>
+                    • <span class="highlight">↔ Esquerda/Direita:</span> Altera o raio/base.
+                </p>
+                <div id="pinch-status" class="mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors">
+                    MÃO ABERTA
+                </div>
             </div>
+        </div>
+
+        <!-- Painel de Dados e Fórmulas (Direita/Fundo) -->
+        <div class="glass-panel pointer-events-auto w-full md:w-96 rounded-2xl p-5 flex flex-col gap-5 self-end md:self-start max-h-[55vh] md:max-h-[90vh] overflow-y-auto">
+            
+            <div class="flex justify-between items-end border-b border-white/10 pb-2">
+                <h2 id="solid-title" class="text-xl font-bold text-white tracking-wide uppercase">Cilindro</h2>
+                <span class="text-xs text-teal-400 animate-pulse">Em Tempo Real</span>
+            </div>
+
+            <!-- Dimensões -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-radius">
+                    <p class="text-xs text-gray-400 mb-1" id="label-radius">Raio (r)</p>
+                    <p class="text-2xl font-light text-white"><span id="val-radius">2.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
+                </div>
+                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-height">
+                    <p class="text-xs text-gray-400 mb-1">Altura (h)</p>
+                    <p class="text-2xl font-light text-white"><span id="val-height">4.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
+                </div>
+            </div>
+
+            <!-- Volume -->
+            <div>
+                <h3 class="text-sm font-semibold text-teal-300 mb-2">Cálculo do Volume</h3>
+                <div class="math-formula text-sm text-gray-200 mb-2" id="form-volume">
+                    V = &pi; &cdot; r&sup2; &cdot; h
+                </div>
+                <div class="flex justify-between items-baseline bg-teal-900/20 p-2 rounded px-3 border border-teal-900/50">
+                    <span class="text-xs text-gray-400">Resultado:</span>
+                    <p class="text-lg font-bold text-teal-400"><span id="res-volume">50.27</span> m&sup3;</p>
+                </div>
+            </div>
+
+            <!-- Área -->
+            <div>
+                <h3 class="text-sm font-semibold text-purple-300 mb-2">Cálculo da Área Total</h3>
+                <div class="math-formula text-sm text-gray-200 mb-2" id="form-area">
+                    A = 2&pi;r(r + h)
+                </div>
+                <div class="flex justify-between items-baseline bg-purple-900/20 p-2 rounded px-3 border border-purple-900/50">
+                    <span class="text-xs text-gray-400">Resultado:</span>
+                    <p class="text-lg font-bold text-purple-400"><span id="res-area">75.40</span> m&sup2;</p>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // --- CONFIGURAÇÕES E ESTADO ---
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const loadingEl = document.getElementById('loading');
-        const statusText = document.getElementById('status-text');
-        const flashOverlay = document.getElementById('flash-overlay');
-
-        let canvasWidth = window.innerWidth;
-        let canvasHeight = window.innerHeight;
-
-        // Lista de "Máscaras" (Emojis) que vão rodar
-        const MASKS = ['👹', '✨', '👺', '🔥', '🤡', '🌪️', '👽', '💥'];
-        let currentMaskIndex = 0;
-
-        // Lógica de Gestos
-        let gestureBuffer = [];
-        let currentHandState = 'NONE'; // 'OPEN', 'CLOSED', 'NONE'
+        // ==========================================
+        // ESTADO GLOBAL
+        // ==========================================
+        let currentSolid = 'cylinder';
+        let dimensions = { r: 2.0, h: 4.0 }; 
+        const PI = Math.PI;
         
-        // Interpolação suave para o movimento da máscara
-        let smoothFace = { x: 0, y: 0, size: 0, angle: 0 };
-        let firstFaceDetected = true;
+        // Estado de Gestos
+        let isPinching = false;
+        let startPinchPos = { x: 0, y: 0 };
+        let startDimensions = { r: 0, h: 0 };
+        let firstFrameLoaded = false;
 
-        // --- AJUSTE DE REDIMENSIONAMENTO ---
-        function resizeCanvas() {
-            canvasElement.width = window.innerWidth;
-            canvasElement.height = window.innerHeight;
-            canvasWidth = canvasElement.width;
-            canvasHeight = canvasElement.height;
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        // ==========================================
+        // CONFIGURAÇÃO THREE.JS
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
 
-        // --- UTILIDADES ---
+        const camera3D = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera3D.position.set(8, 6, 10);
 
-        // Função para disparar um flash visual quando a máscara muda
-        function triggerFlash() {
-            flashOverlay.style.transition = 'none';
-            flashOverlay.style.opacity = '0.8';
-            
-            // Forçar o reflow
-            void flashOverlay.offsetWidth;
-            
-            flashOverlay.style.transition = 'opacity 0.5s ease-out';
-            flashOverlay.style.opacity = '0';
-        }
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
 
-        // Verifica se a mão está aberta (dedos esticados) ou fechada (punho)
-        function isHandOpen(landmarks) {
-            if (!landmarks) return false;
-            
-            let openFingers = 0;
-            const wrist = landmarks[0];
-            
-            // Pontas e articulações da base (MCP) para os 4 dedos principais
-            const fingers = [
-                { tip: 8, mcp: 5 },   // Indicador
-                { tip: 12, mcp: 9 },  // Médio
-                { tip: 16, mcp: 13 }, // Anelar
-                { tip: 20, mcp: 17 }  // Mínimo
-            ];
-            
-            fingers.forEach(f => {
-                const tip = landmarks[f.tip];
-                const mcp = landmarks[f.mcp];
-                
-                // Distância 3D simples
-                const tipDist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y, tip.z - wrist.z);
-                const mcpDist = Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y, mcp.z - wrist.z);
-                
-                // Se a ponta estiver visivelmente mais longe do pulso que a base do dedo, está esticado
-                if (tipDist > mcpDist * 1.2) {
-                    openFingers++;
-                }
-            });
-            
-            // Se pelo menos 2-3 dedos estiverem esticados, consideramos a mão aberta
-            return openFingers >= 2;
-        }
+        const controls = new THREE.OrbitControls(camera3D, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
 
-        // Desenha a estrutura da mão invertida (efeito espelho)
-        function drawFlippedHand(ctx, landmarks, connections) {
-            const flipped = landmarks.map(lm => ({
-                x: 1 - lm.x, // Inverter eixo X
-                y: lm.y,
-                z: lm.z
-            }));
-            
-            if (connections) {
-                drawConnectors(ctx, flipped, connections, {color: 'rgba(255, 51, 102, 0.4)', lineWidth: 3});
+        // Iluminação
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const spotLight = new THREE.SpotLight(0x00ffcc, 1.5);
+        spotLight.position.set(10, 15, 10);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+        scene.add(new THREE.SpotLight(0xff00ff, 1.0).position.set(-10, -5, -10));
+
+        // Grelha
+        const gridHelper = new THREE.GridHelper(30, 30, 0x00ffcc, 0x222222);
+        gridHelper.position.y = -4;
+        gridHelper.material.opacity = 0.2;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
+
+        // Materiais
+        const solidMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x00ffcc, metalness: 0.1, roughness: 0.1, transmission: 0.8,
+            thickness: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
+            emissive: 0x003322, emissiveIntensity: 0.2
+        });
+        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+
+        let mesh, wireframe;
+        const group = new THREE.Group();
+        scene.add(group);
+
+        function update3DObject() {
+            if (mesh) { group.remove(mesh); mesh.geometry.dispose(); }
+            if (wireframe) { group.remove(wireframe); wireframe.geometry.dispose(); }
+
+            let geometry;
+            const safeR = Math.max(0.1, dimensions.r);
+            const safeH = Math.max(0.1, dimensions.h);
+
+            switch(currentSolid) {
+                case 'cylinder': geometry = new THREE.CylinderGeometry(safeR, safeR, safeH, 32); break;
+                case 'cone': geometry = new THREE.ConeGeometry(safeR, safeH, 32); break;
+                case 'sphere': geometry = new THREE.SphereGeometry(safeR, 32, 32); break;
+                case 'prism': geometry = new THREE.BoxGeometry(safeR * 2, safeH, safeR * 2); break;
             }
-            drawLandmarks(ctx, flipped, {color: '#ffffff', lineWidth: 1, radius: 2});
+            
+            mesh = new THREE.Mesh(geometry, solidMaterial);
+            mesh.castShadow = true; mesh.receiveShadow = true;
+            wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
+            
+            group.add(mesh); group.add(wireframe);
         }
 
-        // --- LÓGICA PRINCIPAL (ON RESULTS) ---
+        // ==========================================
+        // ATUALIZAÇÃO DA INTERFACE (UI)
+        // ==========================================
+        function updateUI() {
+            const { r, h } = dimensions;
+            
+            document.getElementById('val-radius').innerText = r.toFixed(2);
+            document.getElementById('val-height').innerText = h.toFixed(2);
+
+            let vol = 0, area = 0, strVol = '', strArea = '';
+
+            switch(currentSolid) {
+                case 'cylinder':
+                    document.getElementById('solid-title').innerText = 'Cilindro';
+                    document.getElementById('label-radius').innerText = 'Raio (r)';
+                    document.getElementById('box-height').style.display = 'block';
+                    vol = PI * r * r * h;
+                    area = 2 * PI * r * (r + h);
+                    strVol = `V = &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
+                    strArea = `A = 2&pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + ${h.toFixed(1)})`;
+                    break;
+                case 'cone':
+                    document.getElementById('solid-title').innerText = 'Cone';
+                    document.getElementById('label-radius').innerText = 'Raio Base (r)';
+                    document.getElementById('box-height').style.display = 'block';
+                    vol = (1/3) * PI * r * r * h;
+                    area = PI * r * (r + Math.sqrt(r*r + h*h));
+                    strVol = `V = &frac13; &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
+                    strArea = `A = &pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + g)`;
+                    break;
+                case 'sphere':
+                    document.getElementById('solid-title').innerText = 'Esfera';
+                    document.getElementById('label-radius').innerText = 'Raio (r)';
+                    document.getElementById('box-height').style.display = 'none';
+                    vol = (4/3) * PI * Math.pow(r, 3);
+                    area = 4 * PI * r * r;
+                    strVol = `V = &frac43; &pi; &cdot; ${r.toFixed(1)}&sup3;`;
+                    strArea = `A = 4&pi; &cdot; ${r.toFixed(1)}&sup2;`;
+                    break;
+                case 'prism':
+                    document.getElementById('solid-title').innerText = 'Prisma (Quadrado)';
+                    document.getElementById('label-radius').innerText = 'Lado Base (L)';
+                    document.getElementById('box-height').style.display = 'block';
+                    const L = r * 2; 
+                    vol = L * L * h;
+                    area = 2 * L * L + 4 * L * h;
+                    strVol = `V = ${L.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
+                    strArea = `A = 2(${L.toFixed(1)}&sup2;) + 4(${L.toFixed(1)} &cdot; ${h.toFixed(1)})`;
+                    break;
+            }
+
+            document.getElementById('form-volume').innerHTML = strVol;
+            document.getElementById('res-volume').innerText = vol.toFixed(2);
+            document.getElementById('form-area').innerHTML = strArea;
+            document.getElementById('res-area').innerText = area.toFixed(2);
+        }
+
+        window.changeSolid = function(type) {
+            currentSolid = type;
+            dimensions = (type === 'sphere') ? { r: 2.5, h: 4 } : { r: 2.0, h: 4.0 };
+            
+            document.querySelectorAll('.solid-btn').forEach(btn => btn.className = "solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all");
+            event.target.className = "solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all";
+            
+            const colors = { cylinder: 0x00ffcc, cone: 0xff3366, sphere: 0x3366ff, prism: 0xffcc00 };
+            solidMaterial.color.setHex(colors[type]);
+            spotLight.color.setHex(colors[type]);
+
+            update3DObject();
+            updateUI();
+        };
+
+        // ==========================================
+        // MEDIAPIPE HANDS - LÓGICA DE RASTREAMENTO
+        // ==========================================
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('camera-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const statusBox = document.getElementById('pinch-status');
+        const boxRadius = document.getElementById('box-radius');
+        const boxHeight = document.getElementById('box-height');
+
         function onResults(results) {
-            // Esconder ecrã de carregamento na primeira frame válida
-            if (loadingEl.style.display !== 'none') {
-                loadingEl.style.display = 'none';
-                statusText.innerText = 'Pronto! Mostre a sua mão.';
+            if (!firstFrameLoaded) {
+                document.getElementById('loading-ai').style.display = 'none';
+                firstFrameLoaded = true;
             }
 
-            canvasCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-            // 1. Desenhar o Vídeo de Fundo (Espelhado)
             canvasCtx.save();
-            canvasCtx.translate(canvasWidth, 0);
-            canvasCtx.scale(-1, 1);
-            if (results.image) {
-                // Cálculo para cobrir todo o ecrã (object-fit: cover)
-                const vRatio = canvasWidth / canvasHeight;
-                const iRatio = results.image.width / results.image.height;
-                let dx, dy, dw, dh;
-                if (vRatio > iRatio) {
-                    dw = canvasWidth;
-                    dh = canvasWidth / iRatio;
-                    dx = 0;
-                    dy = (canvasHeight - dh) / 2;
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Pontos 4 (Ponta do Polegar) e 8 (Ponta do Indicador)
+                const thumb = landmarks[4];
+                const index = landmarks[8];
+
+                // Distância Euclidiana 3D
+                const dx = thumb.x - index.x;
+                const dy = thumb.y - index.y;
+                const dz = thumb.z - index.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+
+                const currentPinch = dist < 0.07; // Limiar de pinça
+                const midX = (thumb.x + index.x) / 2;
+                const midY = (thumb.y + index.y) / 2;
+
+                // Desenhar o esqueleto da mão (Verde se beliscar, Branco se aberto)
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: currentPinch ? '#00ffcc' : '#ffffff', lineWidth: 2 });
+                drawLandmarks(canvasCtx, landmarks, { color: currentPinch ? '#00ffcc' : '#ff0000', lineWidth: 1, radius: 2 });
+
+                if (currentPinch) {
+                    if (!isPinching) {
+                        // Iniciar o Arraste
+                        isPinching = true;
+                        startPinchPos = { x: midX, y: midY };
+                        startDimensions = { ...dimensions };
+                        
+                        // Atualizar UI Visual
+                        statusBox.innerText = "A ARRASTAR SÓLIDO!";
+                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-teal-500 text-white transition-colors";
+                        solidMaterial.emissiveIntensity = 0.8; // Fazer o sólido brilhar
+                    } else {
+                        // Durante o Arraste
+                        const deltaX = midX - startPinchPos.x;
+                        const deltaY = midY - startPinchPos.y;
+
+                        // Sensibilidade do Gesto (Ajustada para o ecrã)
+                        // webcam é espelhada. Mover fisicamente para a direita = deltaX negativo.
+                        let newR = startDimensions.r - (deltaX * 15);
+                        dimensions.r = Math.max(0.5, Math.min(8.0, newR));
+
+                        // Eixo Y (Cima é Menor Y, Baixo é Maior Y)
+                        if (currentSolid !== 'sphere') {
+                            let newH = startDimensions.h - (deltaY * 20);
+                            dimensions.h = Math.max(0.5, Math.min(10.0, newH));
+                        }
+
+                        // Highlights na UI se estiver a alterar intensamente
+                        if(Math.abs(deltaX) > 0.05) boxRadius.classList.add('border-teal-500', 'bg-teal-900/40');
+                        else boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
+                        
+                        if(Math.abs(deltaY) > 0.05 && currentSolid !== 'sphere') boxHeight.classList.add('border-teal-500', 'bg-teal-900/40');
+                        else boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
+
+                        update3DObject();
+                        updateUI();
+                    }
                 } else {
-                    dw = canvasHeight * iRatio;
-                    dh = canvasHeight;
-                    dx = (canvasWidth - dw) / 2;
-                    dy = 0;
+                    if (isPinching) {
+                        // Soltar o Gesto
+                        isPinching = false;
+                        statusBox.innerText = "MÃO ABERTA";
+                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors";
+                        solidMaterial.emissiveIntensity = 0.2;
+                        boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
+                        boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
+                    }
                 }
-                canvasCtx.drawImage(results.image, dx, dy, dw, dh);
+            } else {
+                // Sem mãos detetadas
+                isPinching = false;
+                statusBox.innerText = "MÃO NÃO DETETADA";
+                statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-gray-500/20 text-gray-400 transition-colors";
+                solidMaterial.emissiveIntensity = 0.2;
             }
             canvasCtx.restore();
-
-            // 2. Lógica de Deteção da Mão
-            // O modelo Holistic fornece 'leftHandLandmarks' e 'rightHandLandmarks'.
-            // Como a imagem está espelhada fisicamente, a mão direita real aparece como a 'leftHand' no ecrã.
-            const handLandmarks = results.leftHandLandmarks || results.rightHandLandmarks;
-            
-            if (handLandmarks) {
-                const isOpen = isHandOpen(handLandmarks);
-                
-                // Sistema de "Debounce": Evita mudanças bruscas garantindo X frames consecutivas
-                gestureBuffer.push(isOpen);
-                if (gestureBuffer.length > 5) gestureBuffer.shift(); // Manter buffer pequeno
-                
-                let detectedState = currentHandState;
-                if (gestureBuffer.every(val => val === true)) detectedState = 'OPEN';
-                else if (gestureBuffer.every(val => val === false)) detectedState = 'CLOSED';
-
-                // Se o estado estabilizado for diferente do anterior, mudamos a máscara!
-                if (currentHandState !== 'NONE' && detectedState !== currentHandState) {
-                    currentMaskIndex = (currentMaskIndex + 1) % MASKS.length;
-                    triggerFlash();
-                    statusText.innerText = detectedState === 'OPEN' ? 'Mão Aberta!' : 'Punho Cerrado!';
-                }
-                
-                currentHandState = detectedState;
-
-                // Desenhar a mão detetada
-                drawFlippedHand(canvasCtx, handLandmarks, HAND_CONNECTIONS);
-            } else {
-                // Esvaziar buffer se a mão sair do ecrã para evitar comportamentos estranhos no retorno
-                gestureBuffer = []; 
-                if (currentHandState !== 'NONE') {
-                    statusText.innerText = 'Rastreamento de Rosto Ativo';
-                }
-            }
-
-            // 3. Renderização da Máscara (Rosto)
-            if (results.faceLandmarks) {
-                const face = results.faceLandmarks;
-                
-                // Extrair pontos chave para calcular tamanho e rotação
-                const nose = face[1];
-                const leftCheek = face[234]; // Lado esquerdo do utilizador
-                const rightCheek = face[454]; // Lado direito do utilizador
-                const leftEye = face[33];
-                const rightEye = face[263];
-
-                // Converter para coordenadas de ecrã (Inversão X manual devido ao efeito espelho)
-                const cx = (1 - nose.x) * canvasWidth;
-                const cy = nose.y * canvasHeight;
-
-                const lx = (1 - leftCheek.x) * canvasWidth;
-                const rx = (1 - rightCheek.x) * canvasWidth;
-                const faceWidth = Math.abs(lx - rx) * 2; // Multiplicador para a máscara cobrir bem a cabeça
-
-                const lex = (1 - leftEye.x) * canvasWidth;
-                const ley = leftEye.y * canvasHeight;
-                const rex = (1 - rightEye.x) * canvasWidth;
-                const rey = rightEye.y * canvasHeight;
-                
-                const angle = Math.atan2(rey - ley, rex - lex);
-
-                // Interpolação suave (Lerp) para evitar trepidação
-                if (firstFaceDetected) {
-                    smoothFace = { x: cx, y: cy, size: faceWidth, angle: angle };
-                    firstFaceDetected = false;
-                } else {
-                    smoothFace.x += (cx - smoothFace.x) * 0.4;
-                    smoothFace.y += (cy - smoothFace.y) * 0.4;
-                    smoothFace.size += (faceWidth - smoothFace.size) * 0.3;
-                    smoothFace.angle += (angle - smoothFace.angle) * 0.3;
-                }
-
-                // Desenhar a Máscara Atual
-                canvasCtx.save();
-                canvasCtx.translate(smoothFace.x, smoothFace.y);
-                canvasCtx.rotate(smoothFace.angle);
-                
-                canvasCtx.font = `${smoothFace.size}px Arial`;
-                canvasCtx.textAlign = 'center';
-                canvasCtx.textBaseline = 'middle';
-                
-                // Aplicar ligeira sombra para destacar a máscara do vídeo
-                canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-                canvasCtx.shadowBlur = 20;
-                
-                // Desenhar Emoji (ajustando a posição Y para ficar bem centrado na cara)
-                canvasCtx.fillText(MASKS[currentMaskIndex], 0, -smoothFace.size * 0.1);
-                
-                canvasCtx.restore();
-            } else {
-                firstFaceDetected = true; // Reiniciar interpolação se o rosto for perdido
-            }
         }
 
-        // --- INICIALIZAÇÃO DO MEDIAPIPE HOLISTIC ---
-        const holistic = new Holistic({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`;
+        // Inicialização do MediaPipe
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }});
         
-        holistic.setOptions({
-            modelComplexity: 1,      // 0, 1 ou 2. 1 oferece bom balanço entre rapidez e precisão
-            smoothLandmarks: true,
-            enableSegmentation: false, // Desativado para melhor performance
-            refineFaceLandmarks: true, // Crucial para rotação ocular e rosto estável
-            minDetectionConfidence: 0.5,
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.5
         });
-        
-        holistic.onResults(onResults);
+        hands.onResults(onResults);
 
-        // --- INICIALIZAÇÃO DA CÂMARA ---
         const camera = new Camera(videoElement, {
             onFrame: async () => {
-                await holistic.send({image: videoElement});
+                await hands.send({image: videoElement});
             },
-            width: 1280,
-            height: 720
+            width: 640,
+            height: 480
         });
         
-        camera.start();
+        // Iniciar câmara automaticamente
+        camera.start().catch(err => {
+            document.getElementById('loading-ai').innerHTML = "<span class='text-red-400'>Erro ao aceder à câmara.<br>Permita o acesso no navegador.</span>";
+        });
+
+        // ==========================================
+        // LOOP DE ANIMAÇÃO PRINCIPAL (THREE.JS)
+        // ==========================================
+        window.addEventListener('resize', () => {
+            camera3D.aspect = window.innerWidth / window.innerHeight;
+            camera3D.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Suaviza escala inicial
+            if (group.scale.x < 1) {
+                group.scale.x += (1 - group.scale.x) * 0.1;
+                group.scale.y += (1 - group.scale.y) * 0.1;
+                group.scale.z += (1 - group.scale.z) * 0.1;
+            }
+
+            // Flutuação subtil
+            if (!isPinching) {
+                group.rotation.y += 0.003;
+                group.position.y = Math.sin(Date.now() * 0.002) * 0.1;
+            }
+
+            controls.update();
+            renderer.render(scene, camera3D);
+        }
+
+        // Arranque
+        update3DObject();
+        updateUI();
+        animate();
 
     </script>
 </body>
 </html>
-
