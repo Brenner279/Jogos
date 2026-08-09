@@ -1,16 +1,12 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Geometria Espacial no Ar</title>
+    <title>Desenhe Geometria no Ar</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     
     <!-- MediaPipe Hands -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -19,429 +15,612 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; color: white; font-family: 'Inter', sans-serif; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap');
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #0f172a; /* Lousa / Slate */
+            color: white; 
+            font-family: 'Inter', sans-serif;
+            /* Padrão de Grade (Blueprint/Quadro Escolar) */
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        #drawing-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 5;
+        }
+
         .ui-layer { position: relative; z-index: 10; pointer-events: none; }
         .pointer-events-auto { pointer-events: auto; }
         
-        /* Estilo Holográfico (Glassmorphism) */
         .glass-panel {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.6);
         }
         
-        .math-formula {
-            font-family: 'Courier New', Courier, monospace;
+        .math-block {
+            font-family: 'Fira Code', monospace;
             background: rgba(0, 0, 0, 0.4);
-            padding: 8px;
-            border-radius: 6px;
-            border-left: 3px solid #00ffcc;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #38bdf8;
+            font-size: 1.1rem;
             letter-spacing: 0.5px;
         }
 
-        .highlight { color: #00ffcc; font-weight: bold; }
-        
-        /* Câmara Picture-in-Picture */
         #camera-view {
             position: absolute;
-            bottom: 20px;
-            left: 20px;
-            width: 240px;
-            height: 180px;
+            bottom: 24px;
+            left: 24px;
+            width: 200px;
+            height: 150px;
             border-radius: 12px;
             overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(56, 189, 248, 0.3);
             z-index: 20;
             background: #000;
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            transform: scaleX(-1); /* Espelhar a câmara visualmente */
+            transform: scaleX(-1);
         }
+        #camera-canvas { width: 100%; height: 100%; object-fit: cover; }
 
-        #camera-canvas {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        #loading-ai {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.8);
-            z-index: 30;
-            font-size: 14px;
-            font-weight: bold;
-            color: #00ffcc;
-            text-align: center;
-            padding: 20px;
-            transform: scaleX(-1); /* Desfazer espelho para o texto ler-se bem */
-        }
+        /* Status Badges */
+        .status-badge { transition: all 0.3s ease; }
+        .status-draw { background-color: #0ea5e9; color: white; box-shadow: 0 0 15px #0ea5e988; }
+        .status-analyze { background-color: #10b981; color: white; box-shadow: 0 0 15px #10b98188; }
+        .status-clear { background-color: #ef4444; color: white; box-shadow: 0 0 15px #ef444488; }
+        .status-idle { background-color: rgba(255,255,255,0.1); color: #94a3b8; }
     </style>
 </head>
-<body class="antialiased selection:bg-teal-500 selection:text-white">
+<body class="antialiased">
 
-    <!-- Container do 3D -->
-    <div id="canvas-container"></div>
+    <!-- Canvas principal de desenho -->
+    <canvas id="drawing-canvas"></canvas>
 
-    <!-- Feed da Câmara e MediaPipe -->
+    <!-- PIP da Câmera -->
     <div id="camera-view" class="pointer-events-auto">
         <video id="input_video" style="display:none;"></video>
-        <canvas id="camera-canvas" width="640" height="480"></canvas>
-        <div id="loading-ai">A ligar câmara e IA...<br>Por favor, aguarde.</div>
+        <canvas id="camera-canvas" width="320" height="240"></canvas>
     </div>
 
-    <!-- UI - Camada Superior -->
-    <div class="ui-layer flex flex-col md:flex-row h-screen w-screen p-4 md:p-6 justify-between gap-4">
+    <!-- Interface Gráfica -->
+    <div class="ui-layer flex flex-col md:flex-row h-screen w-screen p-6 justify-between gap-6">
         
-        <!-- Painel de Controlos (Esquerda/Topo) -->
-        <div class="glass-panel pointer-events-auto w-full md:w-80 rounded-2xl p-5 flex flex-col gap-4 max-h-[40vh] md:max-h-none overflow-y-auto">
+        <!-- Painel de Instruções (Esquerda/Topo) -->
+        <div class="glass-panel pointer-events-auto w-full md:w-80 rounded-2xl p-6 flex flex-col gap-5 max-h-min self-start">
             <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-teal-400 to-blue-500 bg-clip-text text-transparent mb-1">Geometria no Ar</h1>
-                <p class="text-xs text-gray-400">Interaja usando a sua câmara (MediaPipe)</p>
+                <h1 class="text-3xl font-extrabold bg-gradient-to-r from-sky-400 to-indigo-500 bg-clip-text text-transparent mb-1">Geometria no Ar</h1>
+                <p class="text-sm text-slate-400">O seu dedo é o lápis virtual.</p>
             </div>
 
-            <div class="space-y-2">
-                <p class="text-sm font-semibold text-gray-300">1. Escolha o Sólido:</p>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="changeSolid('cylinder')" class="solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all">Cilindro</button>
-                    <button onclick="changeSolid('cone')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Cone</button>
-                    <button onclick="changeSolid('sphere')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Esfera</button>
-                    <button onclick="changeSolid('prism')" class="solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all">Prisma (Quadrado)</button>
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider">Gestos</h3>
+                
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
+                    <span class="text-2xl">☝️</span>
+                    <div>
+                        <p class="text-sm font-bold text-sky-400">Desenhar</p>
+                        <p class="text-xs text-slate-400">Só o indicador esticado</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
+                    <span class="text-2xl">🖐️</span>
+                    <div>
+                        <p class="text-sm font-bold text-emerald-400">Analisar Forma</p>
+                        <p class="text-xs text-slate-400">Mão totalmente aberta</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 bg-white/5 p-3 rounded-lg border border-white/5">
+                    <span class="text-2xl">✊</span>
+                    <div>
+                        <p class="text-sm font-bold text-red-400">Apagar Quadro</p>
+                        <p class="text-xs text-slate-400">Mão fechada (Punho)</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="mt-auto bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl">
-                <h3 class="text-sm font-bold text-blue-300 mb-2 flex items-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    Gestos no Ar
-                </h3>
-                <p class="text-xs text-gray-300 leading-relaxed">
-                    Mostre a mão à câmara. Junte o <b>polegar</b> e o <b>indicador</b> ("pinça") e mova a mão:<br><br>
-                    • <span class="highlight">↕ Para Cima/Baixo:</span> Altera a altura.<br>
-                    • <span class="highlight">↔ Esquerda/Direita:</span> Altera o raio/base.
-                </p>
-                <div id="pinch-status" class="mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors">
-                    MÃO ABERTA
+            <div class="mt-4 flex justify-center">
+                <div id="gesture-status" class="status-badge status-idle px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2">
+                    <div id="gesture-dot" class="w-2 h-2 rounded-full bg-current opacity-50"></div>
+                    <span id="gesture-text">Aguardando Mão...</span>
                 </div>
             </div>
         </div>
 
-        <!-- Painel de Dados e Fórmulas (Direita/Fundo) -->
-        <div class="glass-panel pointer-events-auto w-full md:w-96 rounded-2xl p-5 flex flex-col gap-5 self-end md:self-start max-h-[55vh] md:max-h-[90vh] overflow-y-auto">
+        <!-- Painel de Resultados (Direita) -->
+        <div id="result-panel" class="glass-panel pointer-events-auto w-full md:w-[400px] rounded-2xl p-6 flex flex-col gap-6 self-start transform transition-all duration-500 opacity-0 translate-x-10 hidden">
             
-            <div class="flex justify-between items-end border-b border-white/10 pb-2">
-                <h2 id="solid-title" class="text-xl font-bold text-white tracking-wide uppercase">Cilindro</h2>
-                <span class="text-xs text-teal-400 animate-pulse">Em Tempo Real</span>
+            <div class="border-b border-slate-700 pb-3 flex justify-between items-end">
+                <h2 id="shape-name" class="text-2xl font-black text-white uppercase tracking-wide">Triângulo</h2>
+                <span class="text-xs font-bold px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded">Detetado</span>
             </div>
 
-            <!-- Dimensões -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-radius">
-                    <p class="text-xs text-gray-400 mb-1" id="label-radius">Raio (r)</p>
-                    <p class="text-2xl font-light text-white"><span id="val-radius">2.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
-                </div>
-                <div class="bg-white/5 p-3 rounded-xl border border-white/5 transition-colors" id="box-height">
-                    <p class="text-xs text-gray-400 mb-1">Altura (h)</p>
-                    <p class="text-2xl font-light text-white"><span id="val-height">4.00</span><span class="text-sm text-gray-500 ml-1">m</span></p>
-                </div>
+            <div id="shape-icon" class="flex justify-center py-4 text-emerald-400">
+                <!-- Ícone SVG injetado via JS -->
             </div>
 
-            <!-- Volume -->
-            <div>
-                <h3 class="text-sm font-semibold text-teal-300 mb-2">Cálculo do Volume</h3>
-                <div class="math-formula text-sm text-gray-200 mb-2" id="form-volume">
-                    V = &pi; &cdot; r&sup2; &cdot; h
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Medidas Simuladas</h3>
+                    <div id="measurements" class="grid grid-cols-2 gap-3">
+                        <!-- Medidas injetadas aqui -->
+                    </div>
                 </div>
-                <div class="flex justify-between items-baseline bg-teal-900/20 p-2 rounded px-3 border border-teal-900/50">
-                    <span class="text-xs text-gray-400">Resultado:</span>
-                    <p class="text-lg font-bold text-teal-400"><span id="res-volume">50.27</span> m&sup3;</p>
+
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Fórmula da Área</h3>
+                    <div id="formula-display" class="math-block text-sky-300">
+                        A = (b &times; h) / 2
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Cálculo Passo a Passo</h3>
+                    <div id="calculation-steps" class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 text-sm space-y-2 text-slate-300">
+                        <!-- Passos injetados aqui -->
+                    </div>
                 </div>
             </div>
-
-            <!-- Área -->
-            <div>
-                <h3 class="text-sm font-semibold text-purple-300 mb-2">Cálculo da Área Total</h3>
-                <div class="math-formula text-sm text-gray-200 mb-2" id="form-area">
-                    A = 2&pi;r(r + h)
-                </div>
-                <div class="flex justify-between items-baseline bg-purple-900/20 p-2 rounded px-3 border border-purple-900/50">
-                    <span class="text-xs text-gray-400">Resultado:</span>
-                    <p class="text-lg font-bold text-purple-400"><span id="res-area">75.40</span> m&sup2;</p>
-                </div>
-            </div>
-
         </div>
+
     </div>
 
     <script>
         // ==========================================
-        // ESTADO GLOBAL
+        // ESTADO DA APLICAÇÃO
         // ==========================================
-        let currentSolid = 'cylinder';
-        let dimensions = { r: 2.0, h: 4.0 }; 
-        const PI = Math.PI;
-        
-        // Estado de Gestos
-        let isPinching = false;
-        let startPinchPos = { x: 0, y: 0 };
-        let startDimensions = { r: 0, h: 0 };
-        let firstFrameLoaded = false;
-
-        // ==========================================
-        // CONFIGURAÇÃO THREE.JS
-        // ==========================================
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.02);
-
-        const camera3D = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera3D.position.set(8, 6, 10);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        container.appendChild(renderer.domElement);
-
-        const controls = new THREE.OrbitControls(camera3D, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-
-        // Iluminação
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const spotLight = new THREE.SpotLight(0x00ffcc, 1.5);
-        spotLight.position.set(10, 15, 10);
-        spotLight.castShadow = true;
-        scene.add(spotLight);
-        scene.add(new THREE.SpotLight(0xff00ff, 1.0).position.set(-10, -5, -10));
-
-        // Grelha
-        const gridHelper = new THREE.GridHelper(30, 30, 0x00ffcc, 0x222222);
-        gridHelper.position.y = -4;
-        gridHelper.material.opacity = 0.2;
-        gridHelper.material.transparent = true;
-        scene.add(gridHelper);
-
-        // Materiais
-        const solidMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0x00ffcc, metalness: 0.1, roughness: 0.1, transmission: 0.8,
-            thickness: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.9,
-            emissive: 0x003322, emissiveIntensity: 0.2
-        });
-        const wireframeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
-
-        let mesh, wireframe;
-        const group = new THREE.Group();
-        scene.add(group);
-
-        function update3DObject() {
-            if (mesh) { group.remove(mesh); mesh.geometry.dispose(); }
-            if (wireframe) { group.remove(wireframe); wireframe.geometry.dispose(); }
-
-            let geometry;
-            const safeR = Math.max(0.1, dimensions.r);
-            const safeH = Math.max(0.1, dimensions.h);
-
-            switch(currentSolid) {
-                case 'cylinder': geometry = new THREE.CylinderGeometry(safeR, safeR, safeH, 32); break;
-                case 'cone': geometry = new THREE.ConeGeometry(safeR, safeH, 32); break;
-                case 'sphere': geometry = new THREE.SphereGeometry(safeR, 32, 32); break;
-                case 'prism': geometry = new THREE.BoxGeometry(safeR * 2, safeH, safeR * 2); break;
-            }
-            
-            mesh = new THREE.Mesh(geometry, solidMaterial);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            wireframe = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), wireframeMaterial);
-            
-            group.add(mesh); group.add(wireframe);
-        }
-
-        // ==========================================
-        // ATUALIZAÇÃO DA INTERFACE (UI)
-        // ==========================================
-        function updateUI() {
-            const { r, h } = dimensions;
-            
-            document.getElementById('val-radius').innerText = r.toFixed(2);
-            document.getElementById('val-height').innerText = h.toFixed(2);
-
-            let vol = 0, area = 0, strVol = '', strArea = '';
-
-            switch(currentSolid) {
-                case 'cylinder':
-                    document.getElementById('solid-title').innerText = 'Cilindro';
-                    document.getElementById('label-radius').innerText = 'Raio (r)';
-                    document.getElementById('box-height').style.display = 'block';
-                    vol = PI * r * r * h;
-                    area = 2 * PI * r * (r + h);
-                    strVol = `V = &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = 2&pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + ${h.toFixed(1)})`;
-                    break;
-                case 'cone':
-                    document.getElementById('solid-title').innerText = 'Cone';
-                    document.getElementById('label-radius').innerText = 'Raio Base (r)';
-                    document.getElementById('box-height').style.display = 'block';
-                    vol = (1/3) * PI * r * r * h;
-                    area = PI * r * (r + Math.sqrt(r*r + h*h));
-                    strVol = `V = &frac13; &pi; &cdot; ${r.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = &pi; &cdot; ${r.toFixed(1)} &cdot; (${r.toFixed(1)} + g)`;
-                    break;
-                case 'sphere':
-                    document.getElementById('solid-title').innerText = 'Esfera';
-                    document.getElementById('label-radius').innerText = 'Raio (r)';
-                    document.getElementById('box-height').style.display = 'none';
-                    vol = (4/3) * PI * Math.pow(r, 3);
-                    area = 4 * PI * r * r;
-                    strVol = `V = &frac43; &pi; &cdot; ${r.toFixed(1)}&sup3;`;
-                    strArea = `A = 4&pi; &cdot; ${r.toFixed(1)}&sup2;`;
-                    break;
-                case 'prism':
-                    document.getElementById('solid-title').innerText = 'Prisma (Quadrado)';
-                    document.getElementById('label-radius').innerText = 'Lado Base (L)';
-                    document.getElementById('box-height').style.display = 'block';
-                    const L = r * 2; 
-                    vol = L * L * h;
-                    area = 2 * L * L + 4 * L * h;
-                    strVol = `V = ${L.toFixed(1)}&sup2; &cdot; ${h.toFixed(1)}`;
-                    strArea = `A = 2(${L.toFixed(1)}&sup2;) + 4(${L.toFixed(1)} &cdot; ${h.toFixed(1)})`;
-                    break;
-            }
-
-            document.getElementById('form-volume').innerHTML = strVol;
-            document.getElementById('res-volume').innerText = vol.toFixed(2);
-            document.getElementById('form-area').innerHTML = strArea;
-            document.getElementById('res-area').innerText = area.toFixed(2);
-        }
-
-        window.changeSolid = function(type) {
-            currentSolid = type;
-            dimensions = (type === 'sphere') ? { r: 2.5, h: 4 } : { r: 2.0, h: 4.0 };
-            
-            document.querySelectorAll('.solid-btn').forEach(btn => btn.className = "solid-btn bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 py-2 rounded-lg text-sm transition-all");
-            event.target.className = "solid-btn active bg-teal-600/30 hover:bg-teal-600/50 border border-teal-500/50 text-teal-100 py-2 rounded-lg text-sm transition-all";
-            
-            const colors = { cylinder: 0x00ffcc, cone: 0xff3366, sphere: 0x3366ff, prism: 0xffcc00 };
-            solidMaterial.color.setHex(colors[type]);
-            spotLight.color.setHex(colors[type]);
-
-            update3DObject();
-            updateUI();
+        const state = {
+            stroke: [],           // Pontos do desenho atual
+            isDrawing: false,
+            mode: 'IDLE',         // IDLE, DRAW, ANALYZE
+            lastProcessedTime: 0,
+            pixelsPerMeter: 150   // Fator de escala visual (150px = 1 metro)
         };
 
-        // ==========================================
-        // MEDIAPIPE HANDS - LÓGICA DE RASTREAMENTO
-        // ==========================================
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('camera-canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const statusBox = document.getElementById('pinch-status');
-        const boxRadius = document.getElementById('box-radius');
-        const boxHeight = document.getElementById('box-height');
+        // Elementos do DOM
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        const resultPanel = document.getElementById('result-panel');
+        const statusBadge = document.getElementById('gesture-status');
+        const statusText = document.getElementById('gesture-text');
 
-        function onResults(results) {
-            if (!firstFrameLoaded) {
-                document.getElementById('loading-ai').style.display = 'none';
-                firstFrameLoaded = true;
+        // Ajustar Canvas à janela
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // ==========================================
+        // ALGORITMOS DE GEOMETRIA & RECONHECIMENTO
+        // ==========================================
+
+        // Distância Euclidiana
+        const dist = (p1, p2) => Math.sqrt((p2.x - p1.x)**2 + (p2.y - p1.y)**2);
+
+        // Simplificação de Polígonos (Douglas-Peucker) - Reduz ruído do traço à mão
+        function douglasPeucker(points, epsilon) {
+            if (points.length <= 2) return points;
+            let dmax = 0;
+            let index = 0;
+            const end = points.length - 1;
+            
+            for (let i = 1; i < end; i++) {
+                const d = perpendicularDistance(points[i], points[0], points[end]);
+                if (d > dmax) { index = i; dmax = d; }
+            }
+            
+            if (dmax > epsilon) {
+                const left = douglasPeucker(points.slice(0, index + 1), epsilon);
+                const right = douglasPeucker(points.slice(index), epsilon);
+                return left.slice(0, left.length - 1).concat(right);
+            } else {
+                return [points[0], points[end]];
+            }
+        }
+
+        function perpendicularDistance(pt, lineStart, lineEnd) {
+            const dx = lineEnd.x - lineStart.x;
+            const dy = lineEnd.y - lineStart.y;
+            const mag = Math.sqrt(dx*dx + dy*dy);
+            if(mag === 0) return dist(pt, lineStart);
+            return Math.abs(dx * (lineStart.y - pt.y) - (lineStart.x - pt.x) * dy) / mag;
+        }
+
+        // Análise de Forma
+        function analyzeShape(points) {
+            if (points.length < 10) return null; // Traço muito curto
+
+            // 1. Calcular Bounding Box (Caixa Delimitadora)
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            points.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            });
+
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const centerX = minX + width / 2;
+            const centerY = minY + height / 2;
+            
+            // Rejeitar pontos num só lugar
+            if(width < 20 && height < 20) return null;
+
+            // Fechar o polígono para a análise
+            const closedPoints = [...points, points[0]];
+
+            // 2. Verificar Circularidade (se a distância ao centro é constante)
+            const radiusAvg = (width + height) / 4;
+            let variance = 0;
+            points.forEach(p => {
+                const d = dist(p, {x: centerX, y: centerY});
+                variance += Math.abs(d - radiusAvg);
+            });
+            const avgVariance = variance / points.length;
+            const isCircle = avgVariance < (radiusAvg * 0.25); // Tolerância de 25% na variação
+
+            if (isCircle && width > 40 && height > 40) {
+                return { type: 'Círculo', r: radiusAvg, cx: centerX, cy: centerY };
             }
 
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            // 3. Simplificar Polígono para contar os cantos
+            const epsilon = Math.max(width, height) * 0.12; // Sensibilidade dos cantos
+            const corners = douglasPeucker(closedPoints, epsilon);
+            const numCorners = corners.length - 1; // O primeiro e último são o mesmo
+
+            // 4. Classificação Heurística baseada em cantos
+            if (numCorners === 3) {
+                // Triângulo
+                return { type: 'Triângulo', w: width, h: height, minX, minY };
+            } 
+            else if (numCorners === 4) {
+                const aspect = width / height;
+                
+                // Extrair pontos ordenados por Y
+                const sortedY = [...corners.slice(0, 4)].sort((a,b) => a.y - b.y);
+                const top2 = sortedY.slice(0, 2).sort((a,b) => a.x - b.x);
+                const bottom2 = sortedY.slice(2, 4).sort((a,b) => a.x - b.x);
+                
+                const topWidth = dist(top2[0], top2[1]);
+                const bottomWidth = dist(bottom2[0], bottom2[1]);
+
+                // Losango? (Se desenhado como diamante: cantos no topo-centro, baixo-centro, esq, dir)
+                // Se a distância entre topos for muito pequena, é um vértice.
+                if (topWidth < width * 0.3 && bottomWidth < width * 0.3) {
+                    return { type: 'Losango', D: Math.max(width, height), d: Math.min(width, height) };
+                }
+
+                // Trapézio? (Se a largura superior e inferior forem muito diferentes)
+                if (Math.abs(topWidth - bottomWidth) > width * 0.2) {
+                    return { type: 'Trapézio', B: Math.max(topWidth, bottomWidth), b: Math.min(topWidth, bottomWidth), h: height };
+                }
+
+                // Quadrado ou Retângulo?
+                if (aspect > 0.8 && aspect < 1.25) {
+                    const l = (width + height) / 2;
+                    return { type: 'Quadrado', l: l };
+                } else {
+                    return { type: 'Retângulo', b: width, h: height };
+                }
+            } 
+            else {
+                // Polígono complexo desenhado à mão. Vamos forçar um palpite educacional.
+                const aspect = width / height;
+                if(avgVariance < radiusAvg * 0.35) return { type: 'Círculo', r: radiusAvg, cx: centerX, cy: centerY };
+                if (aspect > 0.8 && aspect < 1.2) return { type: 'Quadrado', l: (width+height)/2 };
+                return { type: 'Retângulo', b: width, h: height };
+            }
+        }
+
+        // ==========================================
+        // RENDERIZAÇÃO DA UI & RESULTADOS
+        // ==========================================
+        
+        function formatM(px) {
+            return (px / state.pixelsPerMeter).toFixed(1);
+        }
+
+        function showResult(shapeData) {
+            resultPanel.classList.remove('hidden');
+            // Timeout pequeno para animação do Tailwind funcionar
+            setTimeout(() => {
+                resultPanel.classList.remove('opacity-0', 'translate-x-10');
+            }, 10);
+
+            const nameEl = document.getElementById('shape-name');
+            const iconEl = document.getElementById('shape-icon');
+            const measEl = document.getElementById('measurements');
+            const formulaEl = document.getElementById('formula-display');
+            const stepsEl = document.getElementById('calculation-steps');
+
+            nameEl.innerText = shapeData.type;
+            measEl.innerHTML = ''; // Limpar anterior
+            
+            // Helper para adicionar medida na UI
+            const addMeasure = (label, val, unit="m") => {
+                measEl.innerHTML += `
+                    <div class="bg-slate-800/80 p-2 rounded border border-slate-700 text-center">
+                        <span class="block text-[10px] text-slate-400 uppercase">${label}</span>
+                        <span class="text-lg font-bold text-white">${val} <span class="text-sm text-sky-400">${unit}</span></span>
+                    </div>`;
+            };
+
+            // Ícones SVG básicos
+            const svgs = {
+                'Triângulo': `<svg width="80" height="80" viewBox="0 0 100 100"><polygon points="50,10 90,90 10,90" fill="none" stroke="currentColor" stroke-width="4"/></svg>`,
+                'Quadrado': `<svg width="80" height="80" viewBox="0 0 100 100"><rect x="15" y="15" width="70" height="70" fill="none" stroke="currentColor" stroke-width="4"/></svg>`,
+                'Retângulo': `<svg width="80" height="80" viewBox="0 0 100 100"><rect x="10" y="30" width="80" height="40" fill="none" stroke="currentColor" stroke-width="4"/></svg>`,
+                'Círculo': `<svg width="80" height="80" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" stroke-width="4"/></svg>`,
+                'Trapézio': `<svg width="80" height="80" viewBox="0 0 100 100"><polygon points="30,20 70,20 90,80 10,80" fill="none" stroke="currentColor" stroke-width="4"/></svg>`,
+                'Losango': `<svg width="80" height="80" viewBox="0 0 100 100"><polygon points="50,10 90,50 50,90 10,50" fill="none" stroke="currentColor" stroke-width="4"/></svg>`
+            };
+            iconEl.innerHTML = svgs[shapeData.type];
+
+            // Injetar lógicas matemáticas consoante a forma
+            let resultArea = 0;
+            if (shapeData.type === 'Triângulo') {
+                const b = formatM(shapeData.w);
+                const h = formatM(shapeData.h);
+                addMeasure("Base (b)", b); addMeasure("Altura (h)", h);
+                formulaEl.innerHTML = "A = <span class='text-white'>(b &times; h) / 2</span>";
+                resultArea = (b * h) / 2;
+                stepsEl.innerHTML = `
+                    <p>1. Multiplicamos a base pela altura: <br><span class="text-sky-300 font-mono">${b} &times; ${h} = ${(b*h).toFixed(2)}</span></p>
+                    <p>2. Dividimos o resultado por 2 (pois o triângulo é metade de um retângulo): <br><span class="text-sky-300 font-mono">${(b*h).toFixed(2)} / 2 = ${resultArea.toFixed(2)} m&sup2;</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            } 
+            else if (shapeData.type === 'Quadrado') {
+                const l = formatM(shapeData.l);
+                addMeasure("Lado (l)", l);
+                formulaEl.innerHTML = "A = <span class='text-white'>l&sup2;</span> (ou l &times; l)";
+                resultArea = l * l;
+                stepsEl.innerHTML = `
+                    <p>1. O quadrado tem lados iguais. Elevamos o lado ao quadrado: <br><span class="text-sky-300 font-mono">${l} &times; ${l}</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            }
+            else if (shapeData.type === 'Retângulo') {
+                const b = formatM(shapeData.b);
+                const h = formatM(shapeData.h);
+                addMeasure("Base (b)", b); addMeasure("Altura (h)", h);
+                formulaEl.innerHTML = "A = <span class='text-white'>b &times; h</span>";
+                resultArea = b * h;
+                stepsEl.innerHTML = `
+                    <p>1. Multiplicamos o comprimento da base pela altura: <br><span class="text-sky-300 font-mono">${b} &times; ${h}</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            }
+            else if (shapeData.type === 'Círculo') {
+                const r = formatM(shapeData.r);
+                addMeasure("Raio (r)", r);
+                formulaEl.innerHTML = "A = <span class='text-white'>&pi; &times; r&sup2;</span>";
+                resultArea = Math.PI * (r * r);
+                stepsEl.innerHTML = `
+                    <p>1. Consideramos &pi; (Pi) como aprox. 3.14159.</p>
+                    <p>2. Calculamos o raio ao quadrado: <br><span class="text-sky-300 font-mono">${r}&sup2; = ${(r*r).toFixed(2)}</span></p>
+                    <p>3. Multiplicamos por &pi;: <br><span class="text-sky-300 font-mono">3.14159 &times; ${(r*r).toFixed(2)}</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            }
+            else if (shapeData.type === 'Trapézio') {
+                const B = formatM(shapeData.B);
+                const b = formatM(shapeData.b);
+                const h = formatM(shapeData.h);
+                addMeasure("Base Maior (B)", B); addMeasure("Base Menor (b)", b); addMeasure("Altura", h);
+                formulaEl.innerHTML = "A = <span class='text-white'>(B + b) &times; h / 2</span>";
+                const sum = parseFloat(B) + parseFloat(b);
+                resultArea = (sum * h) / 2;
+                stepsEl.innerHTML = `
+                    <p>1. Somamos as duas bases (Maior e Menor): <br><span class="text-sky-300 font-mono">${B} + ${b} = ${sum.toFixed(2)}</span></p>
+                    <p>2. Multiplicamos pela altura: <br><span class="text-sky-300 font-mono">${sum.toFixed(2)} &times; ${h} = ${(sum*h).toFixed(2)}</span></p>
+                    <p>3. Dividimos por 2: <br><span class="text-sky-300 font-mono">${(sum*h).toFixed(2)} / 2</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            }
+            else if (shapeData.type === 'Losango') {
+                const D = formatM(shapeData.D);
+                const d = formatM(shapeData.d);
+                addMeasure("Diag. Maior (D)", D); addMeasure("Diag. Menor (d)", d);
+                formulaEl.innerHTML = "A = <span class='text-white'>(D &times; d) / 2</span>";
+                resultArea = (D * d) / 2;
+                stepsEl.innerHTML = `
+                    <p>1. Multiplicamos as duas diagonais: <br><span class="text-sky-300 font-mono">${D} &times; ${d} = ${(D*d).toFixed(2)}</span></p>
+                    <p>2. Dividimos por 2 (o losango ocupa metade do retângulo que o envolve): <br><span class="text-sky-300 font-mono">${(D*d).toFixed(2)} / 2</span></p>
+                    <p class="font-bold text-emerald-400 mt-2 text-base border-t border-slate-700 pt-2">Área Total = ${resultArea.toFixed(2)} m&sup2;</p>
+                `;
+            }
+
+            // Desenhar o contorno geométrico perfeito por cima do desenho do utilizador
+            drawPerfectShape(shapeData);
+        }
+
+        function drawPerfectShape(shape) {
+            ctx.strokeStyle = '#10b981'; // Emerald
+            ctx.lineWidth = 6;
+            ctx.setLineDash([10, 10]); // Tracejado
+            ctx.beginPath();
+
+            const c = { x: canvas.width/2, y: canvas.height/2 }; // Simplificação: desenhar no centro se não houver coordenadas exatas guardadas fáceis
+
+            // Recorrer ao bounding box original se guardado, ou desenhar ao centro
+            if (shape.type === 'Triângulo' || shape.type === 'Retângulo' || shape.type === 'Quadrado') {
+                // ... Simplificação para o CodePen. O desenho ideal é ilustrativo.
+                // Para não complicar demasiado a sobreposição exata, deixamos o traço 
+                // à mão no ecrã e mostramos o ícone na UI. O utilizador já vê o que desenhou.
+            }
+            // Retirar tracejado
+            ctx.setLineDash([]);
+        }
+
+        // ==========================================
+        // RENDERIZAÇÃO DO QUADRO E TRAÇO
+        // ==========================================
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Desenhar traço atual
+            if (state.stroke.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(state.stroke[0].x, state.stroke[0].y);
+                for (let i = 1; i < state.stroke.length; i++) {
+                    // Suavizar com curvas bezier na prática seria melhor, mas lineTo funciona para protótipo rápido
+                    ctx.lineTo(state.stroke[i].x, state.stroke[i].y);
+                }
+                ctx.strokeStyle = '#0ea5e9'; // Ciano Sky (Lápis virtual)
+                ctx.lineWidth = 8;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                // Brilho Neon
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#0ea5e9';
+                ctx.stroke();
+                
+                // Reset sombra
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function setUIStatus(mode) {
+            statusBadge.className = 'status-badge px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2';
+            if (mode === 'DRAW') {
+                statusBadge.classList.add('status-draw');
+                statusText.innerText = "Modo Lápis (Desenhando...)";
+            } else if (mode === 'ANALYZE') {
+                statusBadge.classList.add('status-analyze');
+                statusText.innerText = "Processando Forma...";
+            } else if (mode === 'CLEAR') {
+                statusBadge.classList.add('status-clear');
+                statusText.innerText = "Limpando Quadro!";
+            } else {
+                statusBadge.classList.add('status-idle');
+                statusText.innerText = "Mostre a Mão à Câmera";
+            }
+        }
+
+        // ==========================================
+        // MEDIAPIPE HANDS - GESTOS E RASTREAMENTO
+        // ==========================================
+        const videoElement = document.getElementById('input_video');
+        const cameraCanvas = document.getElementById('camera-canvas');
+        const camCtx = cameraCanvas.getContext('2d');
+
+        function onResults(results) {
+            // Desenhar PIP
+            camCtx.save();
+            camCtx.clearRect(0, 0, cameraCanvas.width, cameraCanvas.height);
+            camCtx.drawImage(results.image, 0, 0, cameraCanvas.width, cameraCanvas.height);
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // Pontos 4 (Ponta do Polegar) e 8 (Ponta do Indicador)
-                const thumb = landmarks[4];
-                const index = landmarks[8];
+                // Desenhar malha da mão no PIP
+                drawConnectors(camCtx, landmarks, HAND_CONNECTIONS, {color: '#ffffff', lineWidth: 1});
+                drawLandmarks(camCtx, landmarks, {color: '#0ea5e9', lineWidth: 0, radius: 2});
 
-                // Distância Euclidiana 3D
-                const dx = thumb.x - index.x;
-                const dy = thumb.y - index.y;
-                const dz = thumb.z - index.z;
-                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                // Lógica de Gestos
+                const isExtended = (tip, pip) => landmarks[tip].y < landmarks[pip].y;
+                
+                const indexUp = isExtended(8, 6);
+                const middleUp = isExtended(12, 10);
+                const ringUp = isExtended(16, 14);
+                const pinkyUp = isExtended(20, 18);
 
-                const currentPinch = dist < 0.07; // Limiar de pinça
-                const midX = (thumb.x + index.x) / 2;
-                const midY = (thumb.y + index.y) / 2;
+                let currentGesture = 'IDLE';
 
-                // Desenhar o esqueleto da mão (Verde se beliscar, Branco se aberto)
-                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: currentPinch ? '#00ffcc' : '#ffffff', lineWidth: 2 });
-                drawLandmarks(canvasCtx, landmarks, { color: currentPinch ? '#00ffcc' : '#ff0000', lineWidth: 1, radius: 2 });
+                // Lápis (Apenas indicador)
+                if (indexUp && !middleUp && !ringUp && !pinkyUp) {
+                    currentGesture = 'DRAW';
+                }
+                // Analisar (Mão Aberta)
+                else if (indexUp && middleUp && ringUp && pinkyUp) {
+                    currentGesture = 'ANALYZE';
+                }
+                // Limpar (Mão Fechada)
+                else if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
+                    currentGesture = 'CLEAR';
+                }
 
-                if (currentPinch) {
-                    if (!isPinching) {
-                        // Iniciar o Arraste
-                        isPinching = true;
-                        startPinchPos = { x: midX, y: midY };
-                        startDimensions = { ...dimensions };
-                        
-                        // Atualizar UI Visual
-                        statusBox.innerText = "A ARRASTAR SÓLIDO!";
-                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-teal-500 text-white transition-colors";
-                        solidMaterial.emissiveIntensity = 0.8; // Fazer o sólido brilhar
+                // Converter coordenadas do dedo indicador (Ponto 8)
+                // Inverter X porque a webcam está espelhada
+                const x = (1 - landmarks[8].x) * canvas.width;
+                const y = landmarks[8].y * canvas.height;
+
+                const now = Date.now();
+
+                // Máquina de Estados
+                if (currentGesture === 'DRAW') {
+                    if (state.mode !== 'DRAW') setUIStatus('DRAW');
+                    state.mode = 'DRAW';
+                    state.stroke.push({x, y});
+                    
+                    // Esconder painel de resultado se começar a desenhar de novo
+                    resultPanel.classList.add('opacity-0', 'translate-x-10');
+                    setTimeout(() => resultPanel.classList.add('hidden'), 500);
+
+                } 
+                else if (currentGesture === 'ANALYZE' && state.mode === 'DRAW') {
+                    // Só analisa se estava a desenhar antes
+                    state.mode = 'ANALYZE';
+                    setUIStatus('ANALYZE');
+                    
+                    const shapeData = analyzeShape(state.stroke);
+                    if (shapeData) {
+                        showResult(shapeData);
                     } else {
-                        // Durante o Arraste
-                        const deltaX = midX - startPinchPos.x;
-                        const deltaY = midY - startPinchPos.y;
-
-                        // Sensibilidade do Gesto (Ajustada para o ecrã)
-                        // webcam é espelhada. Mover fisicamente para a direita = deltaX negativo.
-                        let newR = startDimensions.r - (deltaX * 15);
-                        dimensions.r = Math.max(0.5, Math.min(8.0, newR));
-
-                        // Eixo Y (Cima é Menor Y, Baixo é Maior Y)
-                        if (currentSolid !== 'sphere') {
-                            let newH = startDimensions.h - (deltaY * 20);
-                            dimensions.h = Math.max(0.5, Math.min(10.0, newH));
-                        }
-
-                        // Highlights na UI se estiver a alterar intensamente
-                        if(Math.abs(deltaX) > 0.05) boxRadius.classList.add('border-teal-500', 'bg-teal-900/40');
-                        else boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
-                        
-                        if(Math.abs(deltaY) > 0.05 && currentSolid !== 'sphere') boxHeight.classList.add('border-teal-500', 'bg-teal-900/40');
-                        else boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
-
-                        update3DObject();
-                        updateUI();
-                    }
-                } else {
-                    if (isPinching) {
-                        // Soltar o Gesto
-                        isPinching = false;
-                        statusBox.innerText = "MÃO ABERTA";
-                        statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-red-500/20 text-red-400 transition-colors";
-                        solidMaterial.emissiveIntensity = 0.2;
-                        boxRadius.classList.remove('border-teal-500', 'bg-teal-900/40');
-                        boxHeight.classList.remove('border-teal-500', 'bg-teal-900/40');
+                        // Traço inválido, limpar
+                        state.stroke = [];
+                        setUIStatus('IDLE');
                     }
                 }
+                else if (currentGesture === 'CLEAR') {
+                    state.mode = 'CLEAR';
+                    setUIStatus('CLEAR');
+                    state.stroke = [];
+                    resultPanel.classList.add('opacity-0', 'translate-x-10');
+                    setTimeout(() => resultPanel.classList.add('hidden'), 500);
+                }
+                else if (currentGesture === 'IDLE' && state.mode !== 'ANALYZE') {
+                    state.mode = 'IDLE';
+                    setUIStatus('IDLE');
+                }
+
+                // Atualizar ecrã
+                drawCanvas();
+
             } else {
-                // Sem mãos detetadas
-                isPinching = false;
-                statusBox.innerText = "MÃO NÃO DETETADA";
-                statusBox.className = "mt-2 text-xs font-bold text-center py-1 rounded bg-gray-500/20 text-gray-400 transition-colors";
-                solidMaterial.emissiveIntensity = 0.2;
+                setUIStatus('IDLE');
             }
-            canvasCtx.restore();
+            camCtx.restore();
         }
 
-        // Inicialização do MediaPipe
+        // Iniciar MediaPipe Hands
         const hands = new Hands({locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
         }});
-        
         hands.setOptions({
             maxNumHands: 1,
             modelComplexity: 1,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.5
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
         });
         hands.onResults(onResults);
 
@@ -449,48 +628,13 @@
             onFrame: async () => {
                 await hands.send({image: videoElement});
             },
-            width: 640,
-            height: 480
+            width: 320,
+            height: 240
         });
         
-        // Iniciar câmara automaticamente
         camera.start().catch(err => {
-            document.getElementById('loading-ai').innerHTML = "<span class='text-red-400'>Erro ao aceder à câmara.<br>Permita o acesso no navegador.</span>";
+            alert("Permita o acesso à câmara para desenhar no ar!");
         });
-
-        // ==========================================
-        // LOOP DE ANIMAÇÃO PRINCIPAL (THREE.JS)
-        // ==========================================
-        window.addEventListener('resize', () => {
-            camera3D.aspect = window.innerWidth / window.innerHeight;
-            camera3D.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Suaviza escala inicial
-            if (group.scale.x < 1) {
-                group.scale.x += (1 - group.scale.x) * 0.1;
-                group.scale.y += (1 - group.scale.y) * 0.1;
-                group.scale.z += (1 - group.scale.z) * 0.1;
-            }
-
-            // Flutuação subtil
-            if (!isPinching) {
-                group.rotation.y += 0.003;
-                group.position.y = Math.sin(Date.now() * 0.002) * 0.1;
-            }
-
-            controls.update();
-            renderer.render(scene, camera3D);
-        }
-
-        // Arranque
-        update3DObject();
-        updateUI();
-        animate();
 
     </script>
 </body>
