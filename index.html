@@ -188,7 +188,9 @@
             isDrawing: false,
             mode: 'IDLE',         // IDLE, DRAW, ANALYZE
             lastProcessedTime: 0,
-            pixelsPerMeter: 150   // Fator de escala visual (150px = 1 metro)
+            pixelsPerMeter: 150,  // Fator de escala visual (150px = 1 metro)
+            smoothX: null,        // Para suavizar o movimento do lápis
+            smoothY: null
         };
 
         // Elementos do DOM
@@ -244,7 +246,7 @@
 
         // Análise de Forma
         function analyzeShape(points) {
-            if (points.length < 10) return null; // Traço muito curto
+            if (points.length < 15) return null; // Traço muito curto
 
             // 1. Calcular Bounding Box (Caixa Delimitadora)
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -261,12 +263,20 @@
             const centerY = minY + height / 2;
             
             // Rejeitar pontos num só lugar
-            if(width < 20 && height < 20) return null;
+            if(width < 30 && height < 30) return null;
 
-            // Fechar o polígono para a análise
+            // Fechar o polígono forçadamente para a análise
             const closedPoints = [...points, points[0]];
 
-            // 2. Verificar Circularidade (se a distância ao centro é constante)
+            // Tolerância adaptativa baseada no tamanho do desenho (15% da maior dimensão)
+            const maxDim = Math.max(width, height);
+            const epsilon = maxDim * 0.15; 
+            
+            // 3. Simplificar Polígono para contar os cantos
+            const corners = douglasPeucker(closedPoints, epsilon);
+            const numCorners = corners.length - 1; // O primeiro e último são o mesmo
+
+            // 2. Verificar Circularidade
             const radiusAvg = (width + height) / 4;
             let variance = 0;
             points.forEach(p => {
@@ -276,18 +286,13 @@
             const avgVariance = variance / points.length;
             const isCircle = avgVariance < (radiusAvg * 0.25); // Tolerância de 25% na variação
 
-            if (isCircle && width > 40 && height > 40) {
+            // Se for muito redondo ou tiver muitos cantos detetados (rabisco circular)
+            if ((isCircle && width > 40) || numCorners > 5) {
                 return { type: 'Círculo', r: radiusAvg, cx: centerX, cy: centerY };
             }
 
-            // 3. Simplificar Polígono para contar os cantos
-            const epsilon = Math.max(width, height) * 0.12; // Sensibilidade dos cantos
-            const corners = douglasPeucker(closedPoints, epsilon);
-            const numCorners = corners.length - 1; // O primeiro e último são o mesmo
-
             // 4. Classificação Heurística baseada em cantos
             if (numCorners === 3) {
-                // Triângulo
                 return { type: 'Triângulo', w: width, h: height, minX, minY };
             } 
             else if (numCorners === 4) {
@@ -301,19 +306,18 @@
                 const topWidth = dist(top2[0], top2[1]);
                 const bottomWidth = dist(bottom2[0], bottom2[1]);
 
-                // Losango? (Se desenhado como diamante: cantos no topo-centro, baixo-centro, esq, dir)
-                // Se a distância entre topos for muito pequena, é um vértice.
-                if (topWidth < width * 0.3 && bottomWidth < width * 0.3) {
+                // Losango
+                if (topWidth < width * 0.4 && bottomWidth < width * 0.4) {
                     return { type: 'Losango', D: Math.max(width, height), d: Math.min(width, height) };
                 }
 
-                // Trapézio? (Se a largura superior e inferior forem muito diferentes)
-                if (Math.abs(topWidth - bottomWidth) > width * 0.2) {
+                // Trapézio
+                if (Math.abs(topWidth - bottomWidth) > width * 0.25) {
                     return { type: 'Trapézio', B: Math.max(topWidth, bottomWidth), b: Math.min(topWidth, bottomWidth), h: height };
                 }
 
                 // Quadrado ou Retângulo?
-                if (aspect > 0.8 && aspect < 1.25) {
+                if (aspect > 0.75 && aspect < 1.35) {
                     const l = (width + height) / 2;
                     return { type: 'Quadrado', l: l };
                 } else {
@@ -321,10 +325,9 @@
                 }
             } 
             else {
-                // Polígono complexo desenhado à mão. Vamos forçar um palpite educacional.
+                // Fallback (se o algoritmo falhar em contar perfeitamente, tenta adivinhar pelas proporções)
                 const aspect = width / height;
-                if(avgVariance < radiusAvg * 0.35) return { type: 'Círculo', r: radiusAvg, cx: centerX, cy: centerY };
-                if (aspect > 0.8 && aspect < 1.2) return { type: 'Quadrado', l: (width+height)/2 };
+                if (aspect > 0.75 && aspect < 1.35) return { type: 'Quadrado', l: (width+height)/2 };
                 return { type: 'Retângulo', b: width, h: height };
             }
         }
@@ -560,47 +563,66 @@
                 }
 
                 // Converter coordenadas do dedo indicador (Ponto 8)
-                // Inverter X porque a webcam está espelhada
-                const x = (1 - landmarks[8].x) * canvas.width;
-                const y = landmarks[8].y * canvas.height;
+                const targetX = (1 - landmarks[8].x) * canvas.width;
+                const targetY = landmarks[8].y * canvas.height;
 
-                const now = Date.now();
-
-                // Máquina de Estados
+                // Máquina de Estados Melhorada
                 if (currentGesture === 'DRAW') {
-                    if (state.mode !== 'DRAW') setUIStatus('DRAW');
+                    if (state.mode !== 'DRAW') {
+                        setUIStatus('DRAW');
+                        // Esconder painel de resultado se começar a desenhar de novo
+                        resultPanel.classList.add('opacity-0', 'translate-x-10');
+                        setTimeout(() => resultPanel.classList.add('hidden'), 500);
+                    }
                     state.mode = 'DRAW';
-                    state.stroke.push({x, y});
                     
-                    // Esconder painel de resultado se começar a desenhar de novo
-                    resultPanel.classList.add('opacity-0', 'translate-x-10');
-                    setTimeout(() => resultPanel.classList.add('hidden'), 500);
-
-                } 
-                else if (currentGesture === 'ANALYZE' && state.mode === 'DRAW') {
-                    // Só analisa se estava a desenhar antes
-                    state.mode = 'ANALYZE';
-                    setUIStatus('ANALYZE');
-                    
-                    const shapeData = analyzeShape(state.stroke);
-                    if (shapeData) {
-                        showResult(shapeData);
+                    // Suavização Matemática (Lerp) para remover o tremor
+                    if (state.smoothX === null) {
+                        state.smoothX = targetX;
+                        state.smoothY = targetY;
                     } else {
-                        // Traço inválido, limpar
-                        state.stroke = [];
-                        setUIStatus('IDLE');
+                        state.smoothX += (targetX - state.smoothX) * 0.2; // 0.2 = Velocidade de suavização
+                        state.smoothY += (targetY - state.smoothY) * 0.2;
+                    }
+                    
+                    state.stroke.push({x: state.smoothX, y: state.smoothY});
+                } 
+                else if (currentGesture === 'ANALYZE') {
+                    state.smoothX = null; // Reseta o lápis
+                    
+                    // Só analisa se houver um desenho substancial e se ainda não analisou
+                    if (state.stroke.length > 15 && state.mode !== 'ANALYZE') {
+                        state.mode = 'ANALYZE';
+                        setUIStatus('ANALYZE');
+                        
+                        const shapeData = analyzeShape(state.stroke);
+                        if (shapeData) {
+                            showResult(shapeData);
+                        } else {
+                            // Feedback se não reconheceu nada
+                            setUIStatus('IDLE');
+                            statusText.innerText = "Forma confusa. Apague e repita!";
+                        }
                     }
                 }
                 else if (currentGesture === 'CLEAR') {
-                    state.mode = 'CLEAR';
-                    setUIStatus('CLEAR');
-                    state.stroke = [];
-                    resultPanel.classList.add('opacity-0', 'translate-x-10');
-                    setTimeout(() => resultPanel.classList.add('hidden'), 500);
+                    state.smoothX = null;
+                    if (state.mode !== 'CLEAR') {
+                        state.mode = 'CLEAR';
+                        setUIStatus('CLEAR');
+                        state.stroke = [];
+                        resultPanel.classList.add('opacity-0', 'translate-x-10');
+                        setTimeout(() => resultPanel.classList.add('hidden'), 500);
+                    }
                 }
-                else if (currentGesture === 'IDLE' && state.mode !== 'ANALYZE') {
-                    state.mode = 'IDLE';
-                    setUIStatus('IDLE');
+                else {
+                    state.smoothX = null;
+                    // Estados transitórios (ex: 2 dedos levantados enquanto abre a mão)
+                    // Não cancela a análise se estivermos a ler os resultados
+                    if (state.mode !== 'ANALYZE' && state.mode !== 'CLEAR' && state.mode !== 'IDLE') {
+                        state.mode = 'IDLE';
+                        setUIStatus('IDLE');
+                    }
                 }
 
                 // Atualizar ecrã
