@@ -10,29 +10,35 @@
         body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
     </style>
     <script>
-        // Componente customizado para gerenciar a interação com as formas geométricas
-        AFRAME.registerComponent('interacao-geometria', {
+        // Componente customizado corrigido
+        AFRAME.registerComponent('interacao-forma', {
+            schema: {
+                painelId: { type: 'string' } // Recebe o ID do painel correspondente
+            },
             init: function () {
-                let el = this.el; 
-                let painel = el.querySelector('.painel-info');
-                let formaVisual = el.querySelector('.forma-visual');
+                let el = this.el; // A própria forma geométrica
+                let painel = document.getElementById(this.data.painelId);
 
-                // Quando o cursor foca na forma
+                // Quando o cursor entra na forma
                 el.addEventListener('mouseenter', function () {
-                    // Animação para "aumentar" a forma geométrica (feedback visual)
-                    formaVisual.setAttribute('animation__hover', 'property: scale; to: 1.2 1.2 1.2; dur: 300; easing: easeOutBack');
+                    // Aumenta a escala da forma
+                    el.setAttribute('animation__escala', 'property: scale; to: 1.2 1.2 1.2; dur: 300; easing: easeOutBack');
                     
-                    // Exibe o painel de cálculos
-                    painel.setAttribute('visible', 'true');
+                    // Mostra o painel
+                    if (painel) {
+                        painel.setAttribute('visible', 'true');
+                    }
                 });
 
                 // Quando o cursor sai da forma
                 el.addEventListener('mouseleave', function () {
                     // Retorna a forma ao tamanho original
-                    formaVisual.setAttribute('animation__hover', 'property: scale; to: 1 1 1; dur: 300; easing: easeInBack');
+                    el.setAttribute('animation__escala', 'property: scale; to: 1 1 1; dur: 300; easing: easeInBack');
                     
-                    // Esconde o painel de cálculos
-                    painel.setAttribute('visible', 'false');
+                    // Esconde o painel
+                    if (painel) {
+                        painel.setAttribute('visible', 'false');
+                    }
                 });
             }
         });
@@ -41,18 +47,18 @@
 <body>
     <a-scene>
         <!-- AMBIENTE / CÉU -->
-        <!-- Um céu noturno/espacial para destacar as formas em neon -->
         <a-sky color="#0f0f1a"></a-sky>
 
         <!-- ILUMINAÇÃO -->
-        <a-light type="ambient" color="#444"></a-light>
-        <a-light type="point" intensity="1" position="0 4 0"></a-light>
-        <a-light type="directional" intensity="0.8" position="-1 2 1"></a-light>
+        <a-light type="ambient" color="#555"></a-light>
+        <a-light type="point" intensity="0.8" position="0 4 2"></a-light>
+        <a-light type="directional" intensity="0.5" position="-1 2 1"></a-light>
 
         <!-- CÂMERA E CURSOR -->
         <a-entity position="0 1.6 0">
             <a-camera look-controls wasd-controls>
                 <!-- Cursor circular (gaze) -->
+                <!-- fuse: true permite clicar apenas olhando, fuseTimeout: 500 (meio segundo) -->
                 <a-entity cursor="fuse: true; fuseTimeout: 500"
                           position="0 0 -1"
                           geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.025"
@@ -67,22 +73,20 @@
         <!-- ========================================== -->
         <!-- FORMA 1: CUBO (Cálculo de Área e Volume)   -->
         <!-- ========================================== -->
-        <a-entity position="-3.5 1.5 -4" class="interativo" interacao-geometria>
+        <a-entity position="-3.5 1.5 -4">
             
-            <!-- A malha visual do cubo com animação de rotação contínua -->
-            <a-box class="forma-visual" width="1.5" height="1.5" depth="1.5" 
+            <!-- MALHA DO CUBO (Agora com a classe .interativo) -->
+            <a-box class="interativo" interacao-forma="painelId: painel-cubo"
+                   width="1.5" height="1.5" depth="1.5" 
                    color="#FF4500" material="roughness: 0.2; metalness: 0.5"
                    animation="property: rotation; to: 360 360 0; loop: true; dur: 8000; easing: linear">
             </a-box>
 
-            <!-- Painel de Informações (Oculto por padrão) -->
-            <a-entity class="painel-info" position="0 2 0" visible="false">
-                <!-- Fundo do painel transparente -->
-                <a-plane width="3" height="2.5" color="#000" material="opacity: 0.8"></a-plane>
+            <!-- PAINEL DE INFORMAÇÕES DO CUBO -->
+            <a-entity id="painel-cubo" position="0 2.2 0" visible="false">
+                <a-plane width="3" height="2.5" color="#111" material="opacity: 0.9"></a-plane>
                 
-                <!-- Textos -->
                 <a-text value="CUBO" position="0 1 0.01" align="center" color="#FFA500" scale="1.2 1.2 1.2"></a-text>
-                
                 <a-text value="Medida: Aresta (a) = 2m" position="0 0.6 0.01" align="center" color="#FFF"></a-text>
                 
                 <a-text value="AREA TOTAL:" position="0 0.2 0.01" align="center" color="#ADD8E6"></a-text>
@@ -93,26 +97,27 @@
                 <a-text value="V = a^3 = 2^3" position="0 -1.0 0.01" align="center" color="#FFF"></a-text>
                 <a-text value="V = 8 m^3" position="0 -1.2 0.01" align="center" color="#90EE90"></a-text>
             </a-entity>
+
         </a-entity>
 
 
         <!-- ========================================== -->
         <!-- FORMA 2: ESFERA (Cálculo de Volume)        -->
         <!-- ========================================== -->
-        <a-entity position="0 1.5 -4" class="interativo" interacao-geometria>
+        <a-entity position="0 1.5 -4">
             
-            <!-- Esfera com animação de flutuação (sobe e desce) -->
-            <a-sphere class="forma-visual" radius="1" 
+            <!-- MALHA DA ESFERA -->
+            <a-sphere class="interativo" interacao-forma="painelId: painel-esfera"
+                      radius="1" 
                       color="#1E90FF" material="roughness: 0.1; metalness: 0.7"
                       animation="property: position; to: 0 0.2 0; dir: alternate; loop: true; dur: 2000; easing: easeInOutSine">
             </a-sphere>
 
-            <!-- Painel de Informações -->
-            <a-entity class="painel-info" position="0 2.2 0" visible="false">
-                <a-plane width="3.2" height="2" color="#000" material="opacity: 0.8"></a-plane>
+            <!-- PAINEL DE INFORMAÇÕES DA ESFERA -->
+            <a-entity id="painel-esfera" position="0 2.2 0" visible="false">
+                <a-plane width="3.2" height="2" color="#111" material="opacity: 0.9"></a-plane>
                 
                 <a-text value="ESFERA" position="0 0.7 0.01" align="center" color="#00BFFF" scale="1.2 1.2 1.2"></a-text>
-                
                 <a-text value="Medida: Raio (r) = 1.5m" position="0 0.3 0.01" align="center" color="#FFF"></a-text>
                 
                 <a-text value="VOLUME:" position="0 -0.1 0.01" align="center" color="#ADD8E6"></a-text>
@@ -120,26 +125,27 @@
                 <a-text value="V = 1.33 * 3.14 * 3.37" position="0 -0.6 0.01" align="center" color="#FFF"></a-text>
                 <a-text value="V = 14.13 m^3" position="0 -0.8 0.01" align="center" color="#90EE90"></a-text>
             </a-entity>
+
         </a-entity>
 
 
         <!-- ========================================== -->
         <!-- FORMA 3: CILINDRO (Cálculo de Volume)      -->
         <!-- ========================================== -->
-        <a-entity position="3.5 1.5 -4" class="interativo" interacao-geometria>
+        <a-entity position="3.5 1.5 -4">
             
-            <!-- Cilindro com rotação no eixo X e Y -->
-            <a-cylinder class="forma-visual" radius="0.8" height="2" 
+            <!-- MALHA DO CILINDRO -->
+            <a-cylinder class="interativo" interacao-forma="painelId: painel-cilindro"
+                        radius="0.8" height="2" 
                         color="#32CD32" material="roughness: 0.3; metalness: 0.2"
                         animation="property: rotation; to: 360 0 360; loop: true; dur: 10000; easing: linear">
             </a-cylinder>
 
-            <!-- Painel de Informações -->
-            <a-entity class="painel-info" position="0 2.2 0" visible="false">
-                <a-plane width="3" height="2" color="#000" material="opacity: 0.8"></a-plane>
+            <!-- PAINEL DE INFORMAÇÕES DO CILINDRO -->
+            <a-entity id="painel-cilindro" position="0 2.4 0" visible="false">
+                <a-plane width="3" height="2" color="#111" material="opacity: 0.9"></a-plane>
                 
                 <a-text value="CILINDRO" position="0 0.7 0.01" align="center" color="#7CFC00" scale="1.2 1.2 1.2"></a-text>
-                
                 <a-text value="Medidas: r = 1m | h = 3m" position="0 0.3 0.01" align="center" color="#FFF"></a-text>
                 
                 <a-text value="VOLUME:" position="0 -0.1 0.01" align="center" color="#ADD8E6"></a-text>
@@ -147,12 +153,11 @@
                 <a-text value="V = 3.14 * 1^2 * 3" position="0 -0.6 0.01" align="center" color="#FFF"></a-text>
                 <a-text value="V = 9.42 m^3" position="0 -0.8 0.01" align="center" color="#90EE90"></a-text>
             </a-entity>
+
         </a-entity>
 
-        <!-- Piso quadriculado sutil para dar referência de espaço -->
-        <a-grid position="0 -1 0"></a-grid>
-        <!-- Fallback de piso caso a-grid não carregue corretamente -->
-        <a-plane position="0 -0.5 0" rotation="-90 0 0" width="20" height="20" color="#222" material="opacity: 0.5"></a-plane>
+        <!-- Chão simples escuro -->
+        <a-plane position="0 -0.5 0" rotation="-90 0 0" width="30" height="30" color="#222" material="opacity: 0.8"></a-plane>
 
     </a-scene>
 </body>
