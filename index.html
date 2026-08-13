@@ -3,377 +3,440 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Geometria do Corpo Humano - MediaPipe</title>
-    
+    <title>Medição Métrica em Realidade Mista (RV/RA)</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/holistic/holistic.js" crossorigin="anonymous"></script>
-
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
-        .data-font {
-            font-family: 'JetBrains Mono', monospace;
-        }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        #output_canvas {
-            transform: scaleX(-1); /* Espelhar a imagem para parecer um espelho */
-            width: 100%;
-            height: auto;
-            border-radius: 0.75rem;
-            object-fit: cover;
-        }
-        /* Efeito de grade no fundo */
-        .bg-grid {
-            background-size: 40px 40px;
-            background-image: 
-                linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
-        }
-        
-        /* Spinner de Carregamento */
-        .loader {
-            border: 4px solid rgba(255,255,255,0.1);
-            border-left-color: #06b6d4;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ruler-tick { stroke: rgba(255, 255, 255, 0.8); stroke-width: 1; }
     </style>
 </head>
-<body class="bg-grid min-h-screen flex flex-col p-4 md:p-8">
+<body class="bg-slate-950 text-slate-100 select-none">
 
-    <header class="mb-6 flex justify-between items-end">
-        <div>
-            <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500">
-                Geometria do Corpo Humano
-            </h1>
-            <p class="text-slate-400 mt-2 text-sm md:text-base">Mapeamento em tempo real com MediaPipe Holistic</p>
-        </div>
-        <div id="status-badge" class="hidden md:flex items-center px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-sm">
-            <span class="w-2 h-2 rounded-full bg-cyan-400 mr-2 animate-pulse"></span> Sistema Ativo
-        </div>
-    </header>
+    <!-- 3D Viewport Canvas -->
+    <div id="canvas-container"></div>
 
-    <main class="flex flex-col lg:flex-row gap-6 flex-1">
+    <!-- UI Overlay Panel -->
+    <div class="relative z-10 pointer-events-none min-h-screen flex flex-col justify-between p-4 md:p-6">
         
-        <!-- Área de Vídeo e Canvas -->
-        <div class="flex-1 relative glass-panel rounded-xl p-2 flex flex-col items-center justify-center min-h-[400px]">
-            
-            <!-- Tela de Carregamento -->
-            <div id="loading-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/80 rounded-xl z-20">
-                <div class="loader mb-4"></div>
-                <p class="text-cyan-400 font-medium animate-pulse">Iniciando Câmera e Modelos de IA...</p>
-                <p class="text-slate-400 text-xs mt-2 text-center max-w-xs">Isso pode levar alguns segundos na primeira execução.</p>
+        <!-- Header Controls -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pointer-events-auto">
+            <div class="glass-panel p-4 rounded-2xl shadow-xl flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-xl font-bold">
+                    <i class="fa-solid fa-ruler-combined text-white"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Medição Métrica XR</h1>
+                    <p class="text-xs text-slate-400">Fusão de Realidade Virtual e Aumentada</p>
+                </div>
             </div>
 
-            <!-- Elemento de Vídeo oculto (usado como fonte) -->
-            <video id="input_video" class="hidden" playsinline></video>
-            
-            <!-- Canvas onde a geometria será desenhada -->
-            <canvas id="output_canvas" class="w-full h-full object-contain max-h-[70vh]"></canvas>
+            <!-- Mode Switcher & XR Buttons -->
+            <div class="glass-panel p-2 rounded-2xl shadow-xl flex items-center gap-2">
+                <button id="btn-vr-mode" class="px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-indigo-600 text-white flex items-center gap-2">
+                    <i class="fa-solid fa-vr-cardboard"></i> Ambiente RV
+                </button>
+                <button id="btn-ar-mode" class="px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-eye"></i> Passthrough RA
+                </button>
+                <div class="h-6 w-px bg-slate-700 mx-1"></div>
+                <button id="btn-enter-xr" class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-headset"></i> Iniciar WebXR
+                </button>
+            </div>
         </div>
 
-        <!-- Painel de Dados Geométricos -->
-        <div class="lg:w-96 glass-panel rounded-xl p-6 flex flex-col gap-6">
-            <h2 class="text-xl font-semibold border-b border-slate-700 pb-2 text-slate-200">Análise Geométrica</h2>
+        <!-- Center Crosshair / Instruction Banner -->
+        <div class="self-center glass-panel px-6 py-3 rounded-full shadow-2xl text-center pointer-events-auto transition-all transform hover:scale-105">
+            <p id="instruction-text" class="text-xs sm:text-sm font-medium text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-hand-pointer text-indigo-400 animate-bounce"></i>
+                Clique no espaço 3D para colocar o <strong>1º ponto de medição</strong>.
+            </p>
+        </div>
+
+        <!-- Bottom Controls & Measurement Cards -->
+        <div class="flex flex-col sm:flex-row justify-between items-end gap-4 pointer-events-auto">
             
-            <div class="flex flex-col gap-4">
+            <!-- Measurement Results Widget -->
+            <div class="glass-panel p-4 rounded-2xl shadow-xl w-full sm:w-80 space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-700/60 pb-2">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Leitura Atual</span>
+                    <span id="unit-badge" class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300 font-mono">Métrico (cm / m)</span>
+                </div>
                 
-                <!-- Card: Ângulos dos Braços -->
-                <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                    <h3 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Ângulo do Cotovelo</h3>
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm text-slate-300">Esquerdo</span>
-                        <span id="angle-elbow-l" class="data-font text-cyan-400 font-bold text-lg">--°</span>
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block mb-1">Centímetros</span>
+                        <span id="dist-cm" class="text-2xl font-black font-mono text-indigo-400">0.0</span>
+                        <span class="text-xs text-slate-500"> cm</span>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-slate-300">Direito</span>
-                        <span id="angle-elbow-r" class="data-font text-cyan-400 font-bold text-lg">--°</span>
-                    </div>
-                </div>
-
-                <!-- Card: Ângulos dos Joelhos -->
-                <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                    <h3 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Ângulo do Joelho</h3>
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm text-slate-300">Esquerdo</span>
-                        <span id="angle-knee-l" class="data-font text-green-400 font-bold text-lg">--°</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-slate-300">Direito</span>
-                        <span id="angle-knee-r" class="data-font text-green-400 font-bold text-lg">--°</span>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block mb-1">Metros</span>
+                        <span id="dist-m" class="text-2xl font-black font-mono text-emerald-400">0.00</span>
+                        <span class="text-xs text-slate-500"> m</span>
                     </div>
                 </div>
 
-                <!-- Card: Distâncias -->
-                <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                    <h3 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Distâncias (Estimadas)</h3>
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-sm text-slate-300">Entre os Ombros</span>
-                        <span id="dist-shoulders" class="data-font text-purple-400 font-bold text-lg">-- cm</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-slate-300">Entre as Mãos</span>
-                        <span id="dist-hands" class="data-font text-purple-400 font-bold text-lg">-- cm</span>
-                    </div>
-                    <p class="text-[10px] text-slate-500 mt-2 leading-tight">*Calculado assumindo largura média dos ombros de 40cm para criar proporção.</p>
+                <div id="measure-list" class="max-h-24 overflow-y-auto space-y-1 text-xs font-mono text-slate-300 pr-1">
+                    <!-- History entries appended dynamically -->
                 </div>
 
-                <!-- Card: Inclinação -->
-                <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
-                    <h3 class="text-xs uppercase tracking-wider text-slate-400 mb-2">Postura / Eixo</h3>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-slate-300">Inclinação do Tronco</span>
-                        <span id="angle-trunk" class="data-font text-pink-400 font-bold text-lg">--°</span>
-                    </div>
+                <div class="flex gap-2 pt-1">
+                    <button id="btn-reset" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-trash-can text-rose-400"></i> Limpar Pontos
+                    </button>
+                    <button id="btn-spawn-box" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all" title="Adicionar Objeto 3D">
+                        <i class="fa-solid fa-cube"></i>
+                    </button>
                 </div>
+            </div>
 
+            <!-- Tech Explanation Card -->
+            <div class="glass-panel p-4 rounded-2xl shadow-xl max-w-md hidden md:block">
+                <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-info"></i> Como funciona a RA na RV?
+                </h3>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    O headset rastreia o ambiente físico usando sensores de profundidade e SLAM. A <strong>régua métrica digital</strong> calcula a distância euclidiana $D = \sqrt{\Delta x^2 + \Delta y^2 + \Delta z^2}$ no espaço 3D real a escala 1:1 (1 unidade = 1 metro).
+                </p>
             </div>
         </div>
-    </main>
+    </div>
 
+    <!-- Three.js Application Logic -->
     <script>
-        // Referências do DOM
-        const videoElement = document.getElementById('input_video');
-        const canvasElement = document.getElementById('output_canvas');
-        const canvasCtx = canvasElement.getContext('2d');
-        const loadingOverlay = document.getElementById('loading-overlay');
+        // Global Variables
+        let scene, camera, renderer, controls;
+        let points = [];
+        let markerSpheres = [];
+        let rulerLine = null;
+        let rulerTicksGroup = null;
+        let textLabelMesh = null;
+        let isPassthrough = false;
+        let roomGroup, objectGroup;
         
-        // Elementos de UI dos dados
-        const uiElbowL = document.getElementById('angle-elbow-l');
-        const uiElbowR = document.getElementById('angle-elbow-r');
-        const uiKneeL = document.getElementById('angle-knee-l');
-        const uiKneeR = document.getElementById('angle-knee-r');
-        const uiDistShoulders = document.getElementById('dist-shoulders');
-        const uiDistHands = document.getElementById('dist-hands');
-        const uiAngleTrunk = document.getElementById('angle-trunk');
+        const container = document.getElementById('canvas-container');
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
 
-        /**
-         * Calcula o ângulo entre 3 pontos (a, b, c) onde 'b' é o vértice.
-         * Retorna o ângulo em graus (0 a 180).
-         */
-        function calculateAngle(a, b, c) {
-            if (!a || !b || !c) return null;
+        // Initialize Application
+        function init() {
+            // 1. Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x090d16);
+
+            // 2. Camera Setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 100);
+            camera.position.set(1.5, 1.8, 2.2);
+
+            // 3. Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.xr.enabled = true; // WebXR Capability
+            container.appendChild(renderer.domElement);
+
+            // 4. Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0.8, 0);
+
+            // 5. Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(3, 5, 2);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            // 6. Build Virtual Room Environment (VR Mode)
+            roomGroup = new THREE.Group();
+            scene.add(roomGroup);
+            buildVirtualRoom();
+
+            // 7. Interactive Objects Group
+            objectGroup = new THREE.Group();
+            scene.add(objectGroup);
+            populateSampleObjects();
+
+            // 8. Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+
+            // UI Listeners
+            document.getElementById('btn-vr-mode').addEventListener('click', () => setEnvironmentMode(false));
+            document.getElementById('btn-ar-mode').addEventListener('click', () => setEnvironmentMode(true));
+            document.getElementById('btn-reset').addEventListener('click', resetMeasurement);
+            document.getElementById('btn-spawn-box').addEventListener('click', spawnRandomBox);
+            document.getElementById('btn-enter-xr').addEventListener('click', setupWebXRSession);
+
+            // Animation Loop
+            renderer.setAnimationLoop(animate);
+        }
+
+        // Build 3D Virtual Environment
+        function buildVirtualRoom() {
+            // Floor Grid
+            const grid = new THREE.GridHelper(10, 20, 0x6366f1, 0x1e293b);
+            grid.position.y = 0;
+            roomGroup.add(grid);
+
+            // Room Walls / Environment visuals
+            const floorGeo = new THREE.PlaneGeometry(10, 10);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            roomGroup.add(floor);
+        }
+
+        // Add Sample Furniture/Objects to Measure
+        function populateSampleObjects() {
+            objectGroup.clear();
+
+            // Table / Desk
+            const tableGeo = new THREE.BoxGeometry(1.2, 0.75, 0.6);
+            const tableMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+            const table = new THREE.Mesh(tableGeo, tableMat);
+            table.position.set(0, 0.375, 0);
+            table.castShadow = true;
+            table.receiveShadow = true;
+            table.name = "Mesa de Trabalho";
+            objectGroup.add(table);
+
+            // Decorative Box on table
+            const boxGeo = new THREE.BoxGeometry(0.3, 0.2, 0.2);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x6366f1, roughness: 0.2 });
+            const box = new THREE.Mesh(boxGeo, boxMat);
+            box.position.set(-0.2, 0.85, 0);
+            box.castShadow = true;
+            box.name = "Caixa de Teste";
+            objectGroup.add(box);
+        }
+
+        function spawnRandomBox() {
+            const sizeX = (Math.random() * 0.4 + 0.2).toFixed(2);
+            const sizeY = (Math.random() * 0.4 + 0.2).toFixed(2);
+            const sizeZ = (Math.random() * 0.4 + 0.2).toFixed(2);
             
-            // Calculo da tangente do arco
-            const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-            let angle = Math.abs(radians * 180.0 / Math.PI);
+            const geo = new THREE.BoxGeometry(parseFloat(sizeX), parseFloat(sizeY), parseFloat(sizeZ));
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: Math.random() * 0xffffff, 
+                roughness: 0.3 
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(
+                (Math.random() - 0.5) * 1.5,
+                parseFloat(sizeY) / 2 + 0.01,
+                (Math.random() - 0.5) * 1.5
+            );
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            objectGroup.add(mesh);
+        }
+
+        // Toggle Passthrough / VR Mode
+        function setEnvironmentMode(passthrough) {
+            isPassthrough = passthrough;
+            const vrBtn = document.getElementById('btn-vr-mode');
+            const arBtn = document.getElementById('btn-ar-mode');
+
+            if (isPassthrough) {
+                // Passthrough AR Mode (Simulated grid overlay over dark background or camera)
+                scene.background = null; // Transparent background for WebXR Passthrough
+                roomGroup.visible = false;
+                document.body.classList.remove('bg-slate-950');
+                document.body.style.backgroundColor = '#000000';
+                
+                arBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-indigo-600 text-white flex items-center gap-2";
+                vrBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-2";
+            } else {
+                // VR Mode
+                scene.background = new THREE.Color(0x090d16);
+                roomGroup.visible = true;
+
+                vrBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-indigo-600 text-white flex items-center gap-2";
+                arBtn.className = "px-4 py-2 rounded-xl text-xs font-semibold transition-all bg-slate-800 text-slate-300 hover:bg-slate-700 flex items-center gap-2";
+            }
+        }
+
+        // Pointer Click Handler - Add Measurement Points
+        function onPointerDown(event) {
+            // Ignore if clicking UI elements
+            if (event.target.closest('.pointer-events-auto')) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([objectGroup, roomGroup], true);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                addMeasurementPoint(point);
+            }
+        }
+
+        // Core Measurement Logic
+        function addMeasurementPoint(pos) {
+            if (points.length >= 2) {
+                // Reset if already placed 2 points
+                resetMeasurement();
+            }
+
+            points.push(pos.clone());
+
+            // Create Visual Sphere Marker
+            const markerGeo = new THREE.SphereGeometry(0.018, 16, 16);
+            const markerMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false });
+            const marker = new THREE.Mesh(markerGeo, markerMat);
+            marker.position.copy(pos);
+            scene.add(marker);
+            markerSpheres.push(marker);
+
+            // Update UI Banner
+            const instructionText = document.getElementById('instruction-text');
+            if (points.length === 1) {
+                instructionText.innerHTML = `<i class="fa-solid fa-bullseye text-emerald-400 animate-pulse"></i> Agora clique no <strong>2º ponto</strong> para medir a distância.`;
+            } else if (points.length === 2) {
+                instructionText.innerHTML = `<i class="fa-solid fa-check-circle text-emerald-400"></i> Medição concluída! Clique novamente para reiniciar.`;
+                renderRulerLine();
+            }
+        }
+
+        // Render Metric Ruler 3D Geometry between points
+        function renderRulerLine() {
+            if (points.length < 2) return;
+
+            const p1 = points[0];
+            const p2 = points[1];
+            const distance = p1.distanceTo(p2); // Distance in meters (3D world space)
+
+            // 1. Draw Central Line
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 3, depthTest: false });
+            rulerLine = new THREE.Line(lineGeo, lineMat);
+            scene.add(rulerLine);
+
+            // 2. Render Metric Ticks (Centimeter / Millimeter scale ticks)
+            rulerTicksGroup = new THREE.Group();
+            scene.add(rulerTicksGroup);
+
+            const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
+            const upVector = new THREE.Vector3(0, 1, 0);
+            let sideVector = new THREE.Vector3().crossVectors(direction, upVector).normalize();
+            if (sideVector.length() === 0) {
+                sideVector = new THREE.Vector3(1, 0, 0);
+            }
+
+            const cmStep = 0.05; // Ticks every 5cm
+            const totalSteps = Math.floor(distance / cmStep);
+
+            for (let i = 0; i <= totalSteps; i++) {
+                const currentDist = i * cmStep;
+                const tickPos = new THREE.Vector3().addVectors(p1, direction.clone().multiplyScalar(currentDist));
+                
+                const tickLen = (i % 2 === 0) ? 0.03 : 0.015; // Major vs minor ticks
+                const tickP1 = tickPos.clone().add(sideVector.clone().multiplyScalar(tickLen / 2));
+                const tickP2 = tickPos.clone().sub(sideVector.clone().multiplyScalar(tickLen / 2));
+
+                const tickGeo = new THREE.BufferGeometry().setFromPoints([tickP1, tickP2]);
+                const tickMat = new THREE.LineBasicMaterial({ color: 0xf8fafc, depthTest: false });
+                const tickLine = new THREE.Line(tickGeo, tickMat);
+                rulerTicksGroup.add(tickLine);
+            }
+
+            // 3. Update UI Values
+            const distCm = (distance * 100).toFixed(1);
+            const distM = distance.toFixed(2);
+
+            document.getElementById('dist-cm').innerText = distCm;
+            document.getElementById('dist-m').innerText = distM;
+
+            // Log to history
+            const history = document.getElementById('measure-list');
+            const entry = document.createElement('div');
+            entry.className = "flex justify-between items-center bg-slate-900/40 px-2 py-1 rounded border border-slate-800/80";
+            entry.innerHTML = `<span>Medida #${history.children.length + 1}</span><span class="text-emerald-400 font-bold">${distCm} cm</span>`;
+            history.prepend(entry);
+        }
+
+        // Reset Measurements
+        function resetMeasurement() {
+            points = [];
             
-            // Garantir que pegamos o ângulo interno/menor
-            if (angle > 180.0) {
-                angle = 360 - angle;
+            // Remove Markers
+            markerSpheres.forEach(s => scene.remove(s));
+            markerSpheres = [];
+
+            // Remove Lines
+            if (rulerLine) {
+                scene.remove(rulerLine);
+                rulerLine = null;
             }
-            return angle;
-        }
-
-        /**
-         * Calcula a distância euclidiana entre dois pontos normalizados (0-1), 
-         * escalados pelas dimensões reais do canvas.
-         */
-        function calculateDistancePx(p1, p2, width, height) {
-            if (!p1 || !p2) return null;
-            const dx = (p1.x - p2.x) * width;
-            const dy = (p1.y - p2.y) * height;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
-
-        /**
-         * Retorna o ponto médio entre dois pontos.
-         */
-        function getMidpoint(p1, p2) {
-            if (!p1 || !p2) return null;
-            return {
-                x: (p1.x + p2.x) / 2,
-                y: (p1.y + p2.y) / 2
-            };
-        }
-
-        function onResults(results) {
-            // Esconder overlay de carregamento no primeiro frame válido
-            if (loadingOverlay && !loadingOverlay.classList.contains('hidden')) {
-                loadingOverlay.classList.add('hidden');
+            if (rulerTicksGroup) {
+                scene.remove(rulerTicksGroup);
+                rulerTicksGroup = null;
             }
 
-            // Configurar as dimensões do canvas para corresponder ao vídeo
-            canvasElement.width = videoElement.videoWidth;
-            canvasElement.height = videoElement.videoHeight;
-            const width = canvasElement.width;
-            const height = canvasElement.height;
+            // Reset UI
+            document.getElementById('dist-cm').innerText = "0.0";
+            document.getElementById('dist-m').innerText = "0.00";
+            document.getElementById('instruction-text').innerHTML = `<i class="fa-solid fa-hand-pointer text-indigo-400 animate-bounce"></i> Clique no espaço 3D para colocar o <strong>1º ponto de medição</strong>.`;
+        }
 
-            // Limpar canvas e desenhar a imagem da câmera
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, width, height);
-            canvasCtx.drawImage(results.image, 0, 0, width, height);
-
-            // Cores e Estilos para o desenho geométrico
-            const poseStyle = { color: '#06b6d4', lineWidth: 4 }; // Cyan
-            const faceStyle = { color: '#9333ea', lineWidth: 1 }; // Purple
-            const handsStyle = { color: '#22c55e', lineWidth: 2 }; // Green
-            const pointStyle = { color: '#ffffff', fillColor: '#0ea5e9', lineWidth: 2, radius: 4 };
-
-            // 1. Desenhar a Malha do Rosto (Simplificada)
-            if (results.faceLandmarks) {
-                drawConnectors(canvasCtx, results.faceLandmarks, FACEMESH_TESSELATION, 
-                             {color: 'rgba(147, 51, 234, 0.3)', lineWidth: 1});
-            }
-
-            // 2. Desenhar Pose Corporal
-            if (results.poseLandmarks) {
-                drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, poseStyle);
-                drawLandmarks(canvasCtx, results.poseLandmarks, pointStyle);
-                
-                // Extrair pontos principais para cálculos geométricos
-                const landmarks = results.poseLandmarks;
-                
-                // Índices do MediaPipe Pose
-                // 11: Ombro Esq, 12: Ombro Dir
-                // 13: Cotovelo Esq, 14: Cotovelo Dir
-                // 15: Pulso Esq, 16: Pulso Dir
-                // 23: Quadril Esq, 24: Quadril Dir
-                // 25: Joelho Esq, 26: Joelho Dir
-                // 27: Tornozelo Esq, 28: Tornozelo Dir
-                
-                const pt = (index) => landmarks[index]?.visibility > 0.5 ? landmarks[index] : null;
-
-                const shoulderL = pt(11), shoulderR = pt(12);
-                const elbowL = pt(13), elbowR = pt(14);
-                const wristL = pt(15), wristR = pt(16);
-                const hipL = pt(23), hipR = pt(24);
-                const kneeL = pt(25), kneeR = pt(26);
-                const ankleL = pt(27), ankleR = pt(28);
-
-                // --- CALCULANDO E ATUALIZANDO DADOS ---
-
-                // Ângulos dos Braços (Ombro - Cotovelo - Pulso)
-                if (shoulderL && elbowL && wristL) {
-                    const ang = calculateAngle(shoulderL, elbowL, wristL);
-                    uiElbowL.textContent = `${Math.round(ang)}°`;
-                } else { uiElbowL.textContent = '--°'; }
-
-                if (shoulderR && elbowR && wristR) {
-                    const ang = calculateAngle(shoulderR, elbowR, wristR);
-                    uiElbowR.textContent = `${Math.round(ang)}°`;
-                } else { uiElbowR.textContent = '--°'; }
-
-                // Ângulos dos Joelhos (Quadril - Joelho - Tornozelo)
-                if (hipL && kneeL && ankleL) {
-                    const ang = calculateAngle(hipL, kneeL, ankleL);
-                    uiKneeL.textContent = `${Math.round(ang)}°`;
-                } else { uiKneeL.textContent = '--°'; }
-
-                if (hipR && kneeR && ankleR) {
-                    const ang = calculateAngle(hipR, kneeR, ankleR);
-                    uiKneeR.textContent = `${Math.round(ang)}°`;
-                } else { uiKneeR.textContent = '--°'; }
-
-                // Estimativa de Distâncias
-                let pxPerCm = null;
-                // Assumimos que a distância média entre os ombros de um adulto é ~40cm
-                // Usamos isso como escala para estimar centímetros na tela 2D
-                if (shoulderL && shoulderR) {
-                    const distShoulderPx = calculateDistancePx(shoulderL, shoulderR, width, height);
-                    pxPerCm = distShoulderPx / 40.0; 
-                    uiDistShoulders.textContent = `~40 cm`; // Referência fixa baseada na suposição
-                } else {
-                    uiDistShoulders.textContent = '-- cm';
-                }
-
-                if (wristL && wristR && pxPerCm) {
-                    const distHandsPx = calculateDistancePx(wristL, wristR, width, height);
-                    const distHandsCm = distHandsPx / pxPerCm;
-                    uiDistHands.textContent = `${Math.round(distHandsCm)} cm`;
-                    
-                    // Opcional: Desenhar linha visual entre as mãos se estiverem próximas
-                    if (distHandsCm < 150) {
-                        canvasCtx.beginPath();
-                        canvasCtx.moveTo(wristL.x * width, wristL.y * height);
-                        canvasCtx.lineTo(wristR.x * width, wristR.y * height);
-                        canvasCtx.strokeStyle = 'rgba(236, 72, 153, 0.7)'; // Pink dash
-                        canvasCtx.lineWidth = 2;
-                        canvasCtx.setLineDash([5, 5]);
-                        canvasCtx.stroke();
-                        canvasCtx.setLineDash([]);
+        // WebXR Launch (Hardware Integration)
+        function setupWebXRSession() {
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (supported) {
+                        navigator.xr.requestSession('immersive-ar', {
+                            requiredFeatures: ['hit-test', 'local-floor']
+                        }).then((session) => {
+                            renderer.xr.setSession(session);
+                            setEnvironmentMode(true);
+                        });
+                    } else {
+                        alert("O seu dispositivo/navegador não suporta sessões de RA Imersiva diretamente. Utilize o simulador 3D.");
                     }
-                } else {
-                    uiDistHands.textContent = '-- cm';
-                }
-
-                // Inclinação do Tronco
-                if (shoulderL && shoulderR && hipL && hipR) {
-                    const midShoulder = getMidpoint(shoulderL, shoulderR);
-                    const midHip = getMidpoint(hipL, hipR);
-                    
-                    // Ponto de referência vertical perfeito acima do quadril
-                    const verticalRef = { x: midHip.x, y: midHip.y - 0.1 };
-                    
-                    // Ângulo entre (Linha Vertical) e (Eixo da Coluna)
-                    const ang = calculateAngle(verticalRef, midHip, midShoulder);
-                    uiAngleTrunk.textContent = `${Math.round(ang)}°`;
-                } else {
-                    uiAngleTrunk.textContent = '--°';
-                }
+                });
+            } else {
+                alert("API WebXR não detectada neste navegador. O app funcionará em modo de simulação 3D.");
             }
-
-            // 3. Desenhar Mãos
-            if (results.leftHandLandmarks) {
-                drawConnectors(canvasCtx, results.leftHandLandmarks, HAND_CONNECTIONS, handsStyle);
-                drawLandmarks(canvasCtx, results.leftHandLandmarks, {color: '#ffffff', fillColor: '#22c55e', radius: 2});
-            }
-            if (results.rightHandLandmarks) {
-                drawConnectors(canvasCtx, results.rightHandLandmarks, HAND_CONNECTIONS, handsStyle);
-                drawLandmarks(canvasCtx, results.rightHandLandmarks, {color: '#ffffff', fillColor: '#22c55e', radius: 2});
-            }
-
-            canvasCtx.restore();
         }
 
-        const holistic = new Holistic({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/holistic/${file}`;
-        }});
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-        holistic.setOptions({
-            modelComplexity: 1, // 0, 1 ou 2. 1 é bom balanço entre precisão/performance
-            smoothLandmarks: true,
-            enableSegmentation: false,
-            smoothSegmentation: false,
-            refineFaceLandmarks: false,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
+        function animate() {
+            controls.update();
+            renderer.render(scene, camera);
+        }
 
-        holistic.onResults(onResults);
-
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await holistic.send({image: videoElement});
-            },
-            width: 1280,
-            height: 720
-        });
-
-        camera.start().catch(err => {
-            console.error("Erro ao iniciar câmera:", err);
-            loadingOverlay.innerHTML = `
-                <div class="text-red-500 font-bold mb-2">Erro de Câmera</div>
-                <p class="text-sm text-slate-300 text-center max-w-xs">Permita o acesso à câmera para utilizar a aplicação de geometria do corpo.</p>
-            `;
-        });
+        // Run Application
+        window.onload = init;
     </script>
 </body>
 </html>
+
