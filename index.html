@@ -1,1319 +1,268 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>DESAFIO DA GEOMETRIA — A Missão das 3 Dimensões</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    body, html {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #050814;
-      color: #ffffff;
-    }
-    #canvas-container {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 1;
-    }
-    /* HUD Overlays */
-    #hud {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 20px;
-    }
-    .hud-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(10, 20, 40, 0.75);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      border-radius: 12px;
-      padding: 12px 24px;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
-      pointer-events: auto;
-    }
-    .hud-title {
-      font-size: 1.2rem;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      color: #00f0ff;
-      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
-    }
-    .hud-stats {
-      display: flex;
-      gap: 20px;
-      font-size: 0.95rem;
-    }
-    .stat-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.4);
-      padding: 6px 12px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .stat-value {
-      font-weight: bold;
-      color: #ffd700;
-    }
-    .progress-bar-container {
-      width: 200px;
-      height: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 5px;
-      overflow: hidden;
-      border: 1px solid rgba(0, 240, 255, 0.4);
-    }
-    .progress-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #00f0ff, #7000ff);
-      transition: width 0.4s ease;
-    }
-
-    /* Crosshair for non-VR interaction */
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 12px;
-      height: 12px;
-      border: 2px solid rgba(0, 240, 255, 0.8);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 11;
-      transition: transform 0.1s, background-color 0.1s;
-    }
-    #crosshair.active {
-      transform: translate(-50%, -50%) scale(1.5);
-      background-color: rgba(0, 240, 255, 0.4);
-    }
-
-    /* Mobile virtual controls */
-    #touch-controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      width: 120px;
-      height: 120px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 2px solid rgba(0, 240, 255, 0.3);
-      border-radius: 60px;
-      pointer-events: auto;
-      display: none;
-      touch-action: none;
-    }
-    #stick {
-      position: absolute;
-      top: 35px;
-      left: 35px;
-      width: 50px;
-      height: 50px;
-      background: rgba(0, 240, 255, 0.5);
-      border-radius: 25px;
-      box-shadow: 0 0 10px #00f0ff;
-    }
-
-    /* VR Button Styling */
-    #vr-btn-container {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      z-index: 20;
-      pointer-events: auto;
-    }
-    .btn-vr {
-      background: linear-gradient(135deg, #7000ff, #00f0ff);
-      border: none;
-      color: white;
-      padding: 12px 24px;
-      font-weight: bold;
-      border-radius: 30px;
-      cursor: pointer;
-      box-shadow: 0 0 15px rgba(112, 0, 255, 0.5);
-      transition: all 0.3s ease;
-    }
-    .btn-vr:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 25px rgba(0, 240, 255, 0.8);
-    }
-
-    /* Step Modal / Explanation overlay fallback */
-    #explanation-modal {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(10, 15, 30, 0.95);
-      border: 2px solid #00f0ff;
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
-      border-radius: 16px;
-      padding: 24px;
-      max-width: 500px;
-      width: 90%;
-      z-index: 30;
-      display: none;
-      pointer-events: auto;
-      text-align: center;
-    }
-    #explanation-modal h2 {
-      color: #00f0ff;
-      margin-bottom: 12px;
-    }
-    #explanation-modal p {
-      margin-bottom: 16px;
-      line-height: 1.5;
-      color: #d1d5db;
-    }
-    .btn-modal {
-      background: #00f0ff;
-      color: #050814;
-      font-weight: bold;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    /* Instructions Overlay */
-    #instructions-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(5, 8, 20, 0.92);
-      z-index: 100;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-      text-align: center;
-    }
-    #instructions-overlay h1 {
-      font-size: 2.2rem;
-      color: #00f0ff;
-      margin-bottom: 10px;
-      text-shadow: 0 0 15px rgba(0,240,255,0.5);
-    }
-    #instructions-overlay h3 {
-      color: #ffd700;
-      margin-bottom: 20px;
-      font-weight: 400;
-    }
-    #instructions-overlay p {
-      max-width: 650px;
-      margin-bottom: 15px;
-      line-height: 1.6;
-      color: #cbd5e1;
-    }
-    .start-btn {
-      margin-top: 25px;
-      padding: 16px 40px;
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #050814;
-      background: linear-gradient(90deg, #00f0ff, #00ff88);
-      border: none;
-      border-radius: 40px;
-      cursor: pointer;
-      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .start-btn:hover {
-      transform: scale(1.08);
-      box-shadow: 0 0 30px rgba(0, 255, 136, 0.8);
-    }
-  </style>
-
-  <!-- Import Three.js & WebXR Polyfills/Loaders -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Math Quiz: Área de Figuras Planas</title>
+    <!-- Importando o A-Frame para Realidade Virtual -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        /* Uma tela de loading simples para navegadores mais lentos */
+        #loading {
+            position: absolute; width: 100%; height: 100%; background: #333; color: white;
+            display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 24px;
+        }
+    </style>
 </head>
 <body>
+    <div id="loading">Carregando Mundo VR...</div>
 
-  <div id="canvas-container"></div>
+    <a-scene background="color: #5C94FC"> <!-- Cor de fundo estilo céu de jogo clássico -->
+        
+        <!-- ASSETS (Materiais, texturas) -->
+        <a-assets>
+            <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
+            <img id="brickTexture" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/cubes.jpg" crossorigin="anonymous">
+            
+            <!-- Mixin para os blocos de resposta para reaproveitar código -->
+            <a-mixin id="answer-box" geometry="primitive: box; width: 1.5; height: 1.5; depth: 1.5"
+                     material="src: #brickTexture; color: #F0A000"
+                     animation__hover="property: position; dir: alternate; dur: 1000; easing: easeInOutSine; loop: true"></a-mixin>
+        </a-assets>
 
-  <!-- HUD Overlay -->
-  <div id="hud">
-    <div class="hud-header">
-      <div class="hud-title">DESAFIO DA GEOMETRIA</div>
-      <div class="hud-stats">
-        <div class="stat-item">FASE: <span id="stage-name" class="stat-value">1 - Templo das Áreas</span></div>
-        <div class="stat-item">PONTOS: <span id="score-val" class="stat-value">0</span></div>
-        <div class="stat-item">CHAVES: <span id="keys-val" class="stat-value">0/4</span></div>
-        <div class="stat-item">
-          PROGRESSO:
-          <div class="progress-bar-container">
-            <div id="progress-fill" class="progress-bar-fill"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+        <!-- AMBIENTE (Chão) -->
+        <a-plane src="#groundTexture" rotation="-90 0 0" width="100" height="100" repeat="100 100" material="color: #7EC020"></a-plane>
 
-  <div id="crosshair"></div>
+        <!-- JOGADOR E CÂMERA -->
+        <a-entity position="0 1.6 0"> <!-- Altura média de uma pessoa -->
+            <a-camera look-controls wasd-controls="enabled: false">
+                <!-- Cursor para interação (funciona no PC clicando e no VR olhando/gatilho) -->
+                <a-cursor color="#FF0000" 
+                          animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.1 0.1 0.1; to: 1 1 1"
+                          animation__fusing="property: fusing; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 1 1 1; to: 0.1 0.1 0.1"
+                          animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 500; to: 1 1 1">
+                </a-cursor>
+                
+                <!-- Feedback visual na tela (Acerto/Erro) -->
+                <a-plane id="screen-flash" position="0 0 -0.5" width="2" height="2" material="color: white; opacity: 0; transparent: true"></a-plane>
+            </a-camera>
+        </a-entity>
 
-  <!-- Controles virtuais touch para mobile -->
-  <div id="touch-controls"><div id="stick"></div></div>
+        <!-- INTERFACE DO JOGO (HUD) -->
+        <!-- Vidas e Pontuação -->
+        <a-text id="hud-lives" value="Vidas: 3" position="-3 4 -5" color="#FF0000" scale="1.5 1.5 1.5" font="mozillavr"></a-text>
+        <a-text id="hud-score" value="Nivel: 1/5" position="1.5 4 -5" color="#FFFF00" scale="1.5 1.5 1.5" font="mozillavr"></a-text>
 
-  <!-- Botão VR WebXR -->
-  <div id="vr-btn-container"></div>
+        <!-- Pergunta -->
+        <a-entity id="question-container" position="0 3 -5">
+            <a-text id="question-text" value="Carregando..." align="center" color="#FFFFFF" scale="2 2 2" font="mozillavr"></a-text>
+        </a-entity>
 
-  <!-- Modal explicativo pedagógico -->
-  <div id="explanation-modal">
-    <h2 id="modal-title">EXCELENTE!</h2>
-    <p id="modal-formula" style="font-weight: bold; color: #00ff88; font-size: 1.1rem;"></p>
-    <p id="modal-desc"></p>
-    <button class="btn-modal" onclick="closeModal()">CONTINUAR MISSÃO</button>
-  </div>
+        <!-- BLOCOS DE RESPOSTA -->
+        <!-- Bloco A (Esquerda) -->
+        <a-entity class="clickable" id="box-0" mixin="answer-box" position="-2.5 1 -4" animation__hover="to: -2.5 1.2 -4">
+            <a-text id="text-0" value="A" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
+        </a-entity>
 
-  <!-- Tela Inicial -->
-  <div id="instructions-overlay">
-    <h1>DESAFIO DA GEOMETRIA</h1>
-    <h3>A MISSÃO DAS 3 DIMENSÕES</h3>
-    <p>Explore cenários interativos em 3D e Realidade Virtual. Resolva desafios de cálculo de área e volume para desbloquear os portais de cada fase!</p>
-    <p><strong>Controles Desktop:</strong> Use [W,A,S,D] ou as setas para andar. Mova o mouse para olhar ao redor. Clique nos botões 3D para responder.</p>
-    <p><strong>Controles Mobile/Touch:</strong> Use o joystick na tela para se mover e arraste a tela para girar a visão.</p>
-    <p><strong>Dispositivos VR:</strong> Clique no botão "ENTRAR EM VR" abaixo para uma experiência imersiva completa com seus óculos de Realidade Virtual.</p>
-    <button class="start-btn" onclick="startGame()">INICIAR AVENTURA 3D</button>
-  </div>
+        <!-- Bloco B (Centro) -->
+        <a-entity class="clickable" id="box-1" mixin="answer-box" position="0 1 -4" animation__hover="to: 0 1.2 -4">
+            <a-text id="text-1" value="B" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
+        </a-entity>
 
-  <script>
-    /* =========================================================================
-       AUDIO SYSTEM (Sintetizador Web Audio API sem dependências externas)
-       ========================================================================= */
-    class SoundEffects {
-      constructor() {
-        this.ctx = null;
-      }
-      init() {
-        if (!this.ctx) {
-          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-      }
-      playCorrect() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.3);
-      }
-      playIncorrect() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.linearRampToValueAtTime(110, now + 0.3);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.3);
-      }
-      playUnlock() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, now);
-        osc.frequency.exponentialRampToValueAtTime(880, now + 0.5);
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.5);
-      }
-      playCollect() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(659.25, now); // E5
-        osc.frequency.setValueAtTime(880, now + 0.1); // A5
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.25);
-      }
-    }
-    const sfx = new SoundEffects();
+        <!-- Bloco C (Direita) -->
+        <a-entity class="clickable" id="box-2" mixin="answer-box" position="2.5 1 -4" animation__hover="to: 2.5 1.2 -4">
+            <a-text id="text-2" value="C" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
+        </a-entity>
 
-    /* =========================================================================
-       DADOS DOS DESAFIOS PEDAGÓGICOS (FASES 1, 2 E 3)
-       ========================================================================= */
-    const GAME_DATA = {
-      stages: [
-        {
-          id: 1,
-          title: "Fase 1: Templo das Áreas",
-          theme: "temple",
-          challenges: [
-            {
-              type: "quadrado",
-              name: "Placa Quadrada Sagrada",
-              dims: { lado: 6 },
-              labels: ["Lado = 6 m", "Lado = 6 m"],
-              question: "Qual é a área dessa placa quadrada?",
-              options: ["36 m²", "24 m²", "12 m²", "18 m²"],
-              correct: 0,
-              formula: "A = Lado × Lado = 6 × 6 = 36 m²",
-              explanation: "A área do quadrado é obtida multiplicando o comprimento do lado por ele mesmo."
-            },
-            {
-              type: "retangulo",
-              name: "Portal Retangular",
-              dims: { comp: 10, larg: 6 },
-              labels: ["Comprimento = 10 m", "Largura = 6 m"],
-              question: "Qual é a área da base deste portal retangular?",
-              options: ["16 m²", "32 m²", "60 m²", "100 m²"],
-              correct: 2,
-              formula: "A = Base × Altura = 10 × 6 = 60 m²",
-              explanation: "Dividindo o retângulo em fileiras, temos 10 colunas de 6 m², totalizando 60 m²."
-            },
-            {
-              type: "triangulo",
-              name: "Frontão Triangular",
-              dims: { base: 8, alt: 5 },
-              labels: ["Base = 8 m", "Altura = 5 m"],
-              question: "Qual é a área deste frontão triangular?",
-              options: ["40 m²", "20 m²", "26 m²", "13 m²"],
-              correct: 1,
-              formula: "A = (Base × Altura) / 2 = (8 × 5) / 2 = 20 m²",
-              explanation: "A área do triângulo corresponde exatamente à metade da área de um retângulo de mesma base e altura."
-            },
-            {
-              type: "circulo",
-              name: "Escudo Circular",
-              dims: { raio: 4 },
-              labels: ["Raio = 4 m"],
-              question: "Qual é a área aproximada deste escudo circular? (Considere π ≈ 3.14)",
-              options: ["50.24 m²", "25.12 m²", "12.56 m²", "100.48 m²"],
-              correct: 0,
-              formula: "A = π × r² = 3.14 × (4)² = 3.14 × 16 = 50.24 m²",
-              explanation: "Eleva-se o raio ao quadrado e multiplica-se pela constante π (Pi)."
-            }
-          ]
-        },
-        {
-          id: 2,
-          title: "Fase 2: Laboratório dos Volumes",
-          theme: "lab",
-          challenges: [
-            {
-              type: "cubo",
-              name: "Cubo de Energia Hydro",
-              dims: { aresta: 4 },
-              labels: ["Aresta = 4 m"],
-              question: "Qual é o volume deste cubo purificador?",
-              options: ["16 m³", "48 m³", "64 m³", "32 m³"],
-              correct: 2,
-              formula: "V = Aresta³ = 4 × 4 × 4 = 64 m³",
-              explanation: "O volume do cubo mede o espaço interno, equivalente a empilhar 64 pequenos cubos unitários de 1m³."
-            },
-            {
-              type: "paralelepipedo",
-              name: "Módulo Crio-Armazenador",
-              dims: { comp: 8, larg: 5, alt: 3 },
-              labels: ["Comprimento = 8 m", "Largura = 5 m", "Altura = 3 m"],
-              question: "Qual é o volume desse paralelepípedo de armazenamento?",
-              options: ["120 m³", "100 m³", "80 m³", "60 m³"],
-              correct: 0,
-              formula: "V = Comp × Larg × Altura = 8 × 5 × 3 = 120 m³",
-              explanation: "O volume é o produto das 3 dimensões tridimensionais (Comprimento × Largura × Altura)."
-            },
-            {
-              type: "cilindro",
-              name: "Tanque Cilíndrico de Plasma",
-              dims: { raio: 2, alt: 5 },
-              labels: ["Raio = 2 m", "Altura = 5 m"],
-              question: "Qual é o volume exato deste tanque cilíndrico?",
-              options: ["20π m³", "10π m³", "25π m³", "40π m³"],
-              correct: 0,
-              formula: "V = π × r² × h = π × (2)² × 5 = 20π m³",
-              explanation: "Calcula-se primeiro a área da base circular (π · r²) e multiplica-se pela altura (h)."
-            },
-            {
-              type: "prisma",
-              name: "Prisma Triangular de Refração",
-              dims: { baseTri: 6, altTri: 4, altPrisma: 7 },
-              labels: ["Base Triâng. = 6 m", "Alt. Triâng. = 4 m", "Comprimento = 7 m"],
-              question: "Qual é o volume desse prisma triangular?",
-              options: ["168 m³", "84 m³", "42 m³", "120 m³"],
-              correct: 1,
-              formula: "V = Área_Base × Altura = [(6 × 4) / 2] × 7 = 12 × 7 = 84 m³",
-              explanation: "Calcula-se a área da base triangular (12 m²) e multiplica-se pelo comprimento do prisma (7 m)."
-            }
-          ]
-        },
-        {
-          id: 3,
-          title: "Fase 3: Mundo Geométrico - Cidade Futurista",
-          theme: "city",
-          challenges: [
-            {
-              type: "retangulo",
-              name: "Praça Central Solar",
-              dims: { comp: 15, larg: 10 },
-              labels: ["Comprimento = 15 m", "Largura = 10 m"],
-              question: "Qual é a área total da Praça Solar de captação?",
-              options: ["150 m²", "50 m²", "300 m²", "100 m²"],
-              correct: 0,
-              formula: "A = 15 × 10 = 150 m²",
-              explanation: "Área da base retangular da praça."
-            },
-            {
-              type: "cilindro",
-              name: "Reservatório Quântico",
-              dims: { raio: 3, alt: 10 },
-              labels: ["Raio = 3 m", "Altura = 10 m"],
-              question: "Qual é o volume do reservatório de energia da cidade?",
-              options: ["30π m³", "90π m³", "60π m³", "180π m³"],
-              correct: 1,
-              formula: "V = π × (3)² × 10 = 90π m³",
-              explanation: "Área da base (9π) multiplicada pela altura (10)."
-            },
-            {
-              type: "triangulo",
-              name: "Estrutura de Telecomunicação",
-              dims: { base: 12, alt: 15 },
-              labels: ["Base = 12 m", "Altura = 15 m"],
-              question: "Qual é a área da fachada da torre de sinal?",
-              options: ["180 m²", "90 m²", "120 m²", "60 m²"],
-              correct: 1,
-              formula: "A = (12 × 15) / 2 = 90 m²",
-              explanation: "Metade do produto da base pela altura do triângulo."
-            },
-            {
-              type: "torre_final",
-              name: "TORRE DO CONHECIMENTO (DESAFIO FINAL)",
-              dims: { ladoBase: 10, altBase: 10, altTopo: 6 },
-              labels: ["Base Cúbica: 10x10x10 m", "Topo Piramidal: Altura = 6 m"],
-              question: "Qual é o volume TOTAL da Torre do Conhecimento (Cubo Base + Pirâmide do Topo)?",
-              options: ["1200 m³", "1000 m³", "1600 m³", "1300 m³"],
-              correct: 0,
-              formula: "V_Total = V_Cubo + V_Pirâmide = (10³) + (10² × 6 / 3) = 1000 + 200 = 1200 m³",
-              explanation: "Soma-se o volume do cubo base (1000 m³) com o volume do topo piramidal (200 m³)."
-            }
-          ]
-        }
-      ]
-    };
+    </a-scene>
 
-    /* =========================================================================
-       VARIÁVEIS DE ESTADO E GAME ENGINE (Three.js & WebXR)
-       ========================================================================= */
-    let scene, camera, renderer, clock;
-    let currentStageIdx = 0;
-    let currentChallengeIdx = 0;
-    let score = 0;
-    let keysCollected = 0;
-    let raycaster, mousePointer;
-    let activeInteractiveObjects = [];
-    let playerGroup;
-
-    // Teclas de controle Desktop
-    const keysPressed = {};
-    
-    // Suporte a Touch Mobile
-    let touchMoveActive = false;
-    let touchMoveVector = { x: 0, y: 0 };
-    let touchLookStart = { x: 0, y: 0 };
-    let isTouchingLook = false;
-
-    // Elementos do jogo
-    let portalDoor;
-    let holographicPanelGroup;
-    let shape3DContainer;
-    let labelCanvasTexture, labelMesh;
-
-    /* =========================================================================
-       INICIALIZAÇÃO DO THREE.JS E MUNDO 3D
-       ========================================================================= */
-    function init3D() {
-      const container = document.getElementById('canvas-container');
-      
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x050814);
-      scene.fog = new THREE.FogExp2(0x050814, 0.02);
-
-      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-      
-      playerGroup = new THREE.Group();
-      playerGroup.position.set(0, 1.6, 12);
-      playerGroup.add(camera);
-      scene.add(playerGroup);
-
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      renderer.xr.enabled = true; // Habilita suporte a WebXR / VR
-      container.appendChild(renderer.domElement);
-
-      clock = new THREE.Clock();
-      raycaster = new THREE.Raycaster();
-      mousePointer = new THREE.Vector2();
-
-      // Iluminação Inicial
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-      scene.add(ambientLight);
-
-      const dirLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
-      dirLight.position.set(10, 20, 10);
-      dirLight.castShadow = true;
-      scene.add(dirLight);
-
-      // Event Listeners para Controles Desktop/Mobile
-      setupControls();
-
-      // Configuração do Botão WebXR (VR)
-      setupVR();
-
-      // Render Loop
-      renderer.setAnimationLoop(renderLoop);
-
-      // Inicializar Fase 1
-      loadStage(0);
-    }
-
-    /* =========================================================================
-       CONFIGURAÇÃO DE WEBXR (VR)
-       ========================================================================= */
-    function setupVR() {
-      if ('xr' in navigator) {
-        navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-          if (supported) {
-            const btn = document.createElement('button');
-            btn.className = 'btn-vr';
-            btn.innerText = '🥽 ENTRAR EM VR';
-            btn.onclick = () => {
-              navigator.xr.requestSession('immersive-vr', {
-                optionalFeatures: ['local-floor', 'bounded-floor']
-              }).then((session) => {
-                renderer.xr.setSession(session);
-              });
-            };
-            document.getElementById('vr-btn-container').appendChild(btn);
-          }
+    <script>
+        // Esconde a tela de loading quando a cena carregar
+        document.querySelector('a-scene').addEventListener('loaded', function () {
+            document.getElementById('loading').style.display = 'none';
+            startGame();
         });
-      }
-    }
 
-    /* =========================================================================
-       SISTEMA DE CONTROLES (TECLADO, MOUSE E TOUCH)
-       ========================================================================= */
-    function setupControls() {
-      // Teclado
-      window.addEventListener('keydown', (e) => { keysPressed[e.code] = true; });
-      window.addEventListener('keyup', (e) => { keysPressed[e.code] = false; });
-
-      // Mouse Look
-      let isMouseDown = false;
-      let prevMouseX = 0, prevMouseY = 0;
-
-      window.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'CANVAS') {
-          isMouseDown = true;
-          prevMouseX = e.clientX;
-          prevMouseY = e.clientY;
-        }
-      });
-
-      window.addEventListener('mouseup', () => { isMouseDown = false; });
-
-      window.addEventListener('mousemove', (e) => {
-        if (isMouseDown) {
-          const deltaX = e.clientX - prevMouseX;
-          const deltaY = e.clientY - prevMouseY;
-          
-          playerGroup.rotation.y -= deltaX * 0.003;
-          camera.rotation.x -= deltaY * 0.003;
-          camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
-
-          prevMouseX = e.clientX;
-          prevMouseY = e.clientY;
-        }
-
-        // Raycast para o Crosshair
-        mousePointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mousePointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      });
-
-      // Clique para Interagir
-      window.addEventListener('click', (e) => {
-        if (e.target.tagName !== 'CANVAS') return;
-        checkInteractions();
-      });
-
-      // Touch / Mobile Joystick
-      const touchContainer = document.getElementById('touch-controls');
-      const stick = document.getElementById('stick');
-      if ('ontouchstart' in window) {
-        touchContainer.style.display = 'block';
-      }
-
-      touchContainer.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        touchMoveActive = true;
-      });
-
-      touchContainer.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        const rect = touchContainer.getBoundingClientRect();
-        const touch = e.touches[0];
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        let dx = touch.clientX - centerX;
-        let dy = touch.clientY - centerY;
-        const dist = Math.hypot(dx, dy);
-        const maxDist = 40;
-        if (dist > maxDist) {
-          dx = (dx / dist) * maxDist;
-          dy = (dy / dist) * maxDist;
-        }
-        stick.style.transform = `translate(${dx}px, ${dy}px)`;
-        touchMoveVector.x = dx / maxDist;
-        touchMoveVector.y = dy / maxDist;
-      });
-
-      const resetStick = () => {
-        touchMoveActive = false;
-        touchMoveVector = { x: 0, y: 0 };
-        stick.style.transform = 'translate(0px, 0px)';
-      };
-
-      touchContainer.addEventListener('touchend', resetStick);
-      touchContainer.addEventListener('touchcancel', resetStick);
-
-      // Touch Screen Look
-      window.addEventListener('touchstart', (e) => {
-        if (e.touches[0].clientX > window.innerWidth / 2) {
-          isTouchingLook = true;
-          touchLookStart.x = e.touches[0].clientX;
-          touchLookStart.y = e.touches[0].clientY;
-        }
-      });
-
-      window.addEventListener('touchmove', (e) => {
-        if (isTouchingLook) {
-          const touch = e.touches[0];
-          const dx = touch.clientX - touchLookStart.x;
-          const dy = touch.clientY - touchLookStart.y;
-          playerGroup.rotation.y -= dx * 0.005;
-          camera.rotation.x -= dy * 0.005;
-          camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
-          touchLookStart.x = touch.clientX;
-          touchLookStart.y = touch.clientY;
-        }
-      });
-
-      window.addEventListener('touchend', () => { isTouchingLook = false; });
-
-      // Resize Listener
-      window.addEventListener('resize', onWindowResize);
-    }
-
-    function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
-
-    /* =========================================================================
-       LÓGICA DE MOVIMENTAÇÃO DO JOGADOR
-       ========================================================================= */
-    function updatePlayerMovement(delta) {
-      const speed = 5.0 * delta;
-      const moveVector = new THREE.Vector3();
-
-      if (keysPressed['KeyW'] || keysPressed['ArrowUp']) moveVector.z -= 1;
-      if (keysPressed['KeyS'] || keysPressed['ArrowDown']) moveVector.z += 1;
-      if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) moveVector.x -= 1;
-      if (keysPressed['KeyD'] || keysPressed['ArrowRight']) moveVector.x += 1;
-
-      if (touchMoveActive) {
-        moveVector.x = touchMoveVector.x;
-        moveVector.z = touchMoveVector.y;
-      }
-
-      if (moveVector.lengthSq() > 0) {
-        moveVector.normalize();
-        moveVector.applyQuaternion(playerGroup.quaternion);
-        playerGroup.position.addScaledVector(moveVector, speed);
-
-        // Limite de borda do cenário
-        playerGroup.position.x = Math.max(-25, Math.min(25, playerGroup.position.x));
-        playerGroup.position.z = Math.max(-25, Math.min(25, playerGroup.position.z));
-      }
-    }
-
-    /* =========================================================================
-       CONSTRUÇÃO DINÂMICA DOS AMBIENTES 3D (FASES)
-       ========================================================================= */
-    function clearCurrentStage() {
-      activeInteractiveObjects = [];
-      while(scene.children.length > 0){ 
-        scene.remove(scene.children[0]); 
-      }
-      scene.add(playerGroup);
-    }
-
-    function loadStage(stageIdx) {
-      clearCurrentStage();
-      currentStageIdx = stageIdx;
-      currentChallengeIdx = 0;
-      keysCollected = 0;
-
-      const stage = GAME_DATA.stages[stageIdx];
-      document.getElementById('stage-name').innerText = stage.title;
-      updateHUD();
-
-      // Iluminação Específica do Cenário
-      const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambLight);
-
-      // Posição inicial do jogador
-      playerGroup.position.set(0, 1.6, 12);
-
-      if (stage.theme === 'temple') {
-        buildTempleEnvironment();
-      } else if (stage.theme === 'lab') {
-        buildLabEnvironment();
-      } else if (stage.theme === 'city') {
-        buildCityEnvironment();
-      }
-
-      // Criar a Porta de Saída do Portal
-      buildPortalDoor();
-
-      // Carregar Primeiro Desafio na Arena
-      loadChallenge(currentStageIdx, currentChallengeIdx);
-    }
-
-    /* Cenário Fase 1: Templo das Áreas */
-    function buildTempleEnvironment() {
-      scene.background = new THREE.Color(0x0a0518);
-      scene.fog = new THREE.FogExp2(0x0a0518, 0.015);
-
-      // Chão de Pedra místico com grid de mármore
-      const floorGeo = new THREE.PlaneGeometry(60, 60);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1228, roughness: 0.8, metalness: 0.2 });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      scene.add(floor);
-
-      const grid = new THREE.GridHelper(60, 30, 0x00f0ff, 0x442266);
-      grid.position.y = 0.01;
-      scene.add(grid);
-
-      // Colunas do Templo
-      const colGeo = new THREE.CylinderGeometry(0.8, 1, 10, 8);
-      const colMat = new THREE.MeshStandardMaterial({ color: 0x3a2555, roughness: 0.5 });
-
-      for (let x of [-15, 15]) {
-        for (let z of [-15, -5, 5, 15]) {
-          const col = new THREE.Mesh(colGeo, colMat);
-          col.position.set(x, 5, z);
-          scene.add(col);
-        }
-      }
-
-      // Cristais / Moedas Secretas Coletáveis
-      spawnCollectibles();
-    }
-
-    /* Cenário Fase 2: Laboratório Futurista */
-    function buildLabEnvironment() {
-      scene.background = new THREE.Color(0x02101e);
-      scene.fog = new THREE.FogExp2(0x02101e, 0.02);
-
-      // Chão Metálico Sci-Fi
-      const floorGeo = new THREE.PlaneGeometry(60, 60);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x0a192f, roughness: 0.3, metalness: 0.8 });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      scene.add(floor);
-
-      const grid = new THREE.GridHelper(60, 30, 0x00ffff, 0x0a3a5c);
-      grid.position.y = 0.01;
-      scene.add(grid);
-
-      // Tanques e Cúpulas no fundo
-      const tankGeo = new THREE.CylinderGeometry(2, 2, 6, 16);
-      const tankMat = new THREE.MeshPhysicalMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.4, roughness: 0.1 });
-      
-      const t1 = new THREE.Mesh(tankGeo, tankMat);
-      t1.position.set(-12, 3, -10);
-      scene.add(t1);
-
-      const t2 = new THREE.Mesh(tankGeo, tankMat);
-      t2.position.set(12, 3, -10);
-      scene.add(t2);
-
-      spawnCollectibles();
-    }
-
-    /* Cenário Fase 3: Cidade Geométrica / Mundo Futurista */
-    function buildCityEnvironment() {
-      scene.background = new THREE.Color(0x050515);
-      scene.fog = new THREE.FogExp2(0x050515, 0.015);
-
-      // Chão Cyberpunk
-      const floorGeo = new THREE.PlaneGeometry(80, 80);
-      const floorMat = new THREE.MeshStandardMaterial({ color: 0x080812, roughness: 0.4 });
-      const floor = new THREE.Mesh(floorGeo, floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      scene.add(floor);
-
-      const grid = new THREE.GridHelper(80, 40, 0xff007f, 0x1f0f3d);
-      grid.position.y = 0.01;
-      scene.add(grid);
-
-      // Prédios Cúbicos em Volta
-      const bldgMat = new THREE.MeshStandardMaterial({ color: 0x121026, wireframe: false });
-      for (let i = 0; i < 12; i++) {
-        const h = 10 + Math.random() * 20;
-        const bGeo = new THREE.BoxGeometry(6, h, 6);
-        const b = new THREE.Mesh(bGeo, bldgMat);
-        const angle = (i / 12) * Math.PI * 2;
-        b.position.set(Math.cos(angle) * 28, h / 2, Math.sin(angle) * 28);
-        scene.add(b);
-      }
-
-      spawnCollectibles();
-    }
-
-    /* Coletáveis Segredos (Cristais Matemáticos) */
-    function spawnCollectibles() {
-      const gemGeo = new THREE.OctahedronGeometry(0.4);
-      const gemMat = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffa500, emissiveIntensity: 0.6 });
-
-      const positions = [
-        { x: -8, z: 2 }, { x: 8, z: 2 }, { x: -6, z: -8 }, { x: 6, z: -8 }
-      ];
-
-      positions.forEach(pos => {
-        const gem = new THREE.Mesh(gemGeo, gemMat);
-        gem.position.set(pos.x, 1.2, pos.z);
-        gem.userData = { type: 'collectible' };
-        scene.add(gem);
-        activeInteractiveObjects.push(gem);
-      });
-    }
-
-    /* Porta das Áreas / Porta dos Volumes / Portal do Mestre */
-    function buildPortalDoor() {
-      portalDoor = new THREE.Group();
-      portalDoor.position.set(0, 0, -20);
-
-      // Moldura da Porta
-      const frameGeo = new THREE.BoxGeometry(8, 10, 1);
-      const frameMat = new THREE.MeshStandardMaterial({ color: 0x222233 });
-      const frame = new THREE.Mesh(frameGeo, frameMat);
-      frame.position.y = 5;
-      portalDoor.add(frame);
-
-      // Campo de Energia Bloqueado
-      const fieldGeo = new THREE.PlaneGeometry(6, 8);
-      const fieldMat = new THREE.MeshBasicMaterial({ color: 0xff0055, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
-      const field = new THREE.Mesh(fieldGeo, fieldMat);
-      field.position.y = 5;
-      field.name = "energyField";
-      portalDoor.add(field);
-
-      scene.add(portalDoor);
-    }
-
-    /* =========================================================================
-       PAINEL HOLOGRÁFICO 3D E FIGURAS GEOMÉTRICAS
-       ========================================================================= */
-    function loadChallenge(stageIdx, challengeIdx) {
-      if (holographicPanelGroup) {
-        scene.remove(holographicPanelGroup);
-      }
-
-      const challenge = GAME_DATA.stages[stageIdx].challenges[challengeIdx];
-
-      holographicPanelGroup = new THREE.Group();
-      holographicPanelGroup.position.set(0, 0, -2); // Posicionado em frente ao jogador na arena
-
-      // Suporte da Plataforma
-      const baseGeo = new THREE.CylinderGeometry(3, 3.5, 0.4, 16);
-      const baseMat = new THREE.MeshStandardMaterial({ color: 0x00f0ff, metalness: 0.8, roughness: 0.2 });
-      const base = new THREE.Mesh(baseGeo, baseMat);
-      base.position.y = 0.2;
-      holographicPanelGroup.add(base);
-
-      // 1. Criar a Figura Geométrica 3D com medidas visíveis
-      shape3DContainer = new THREE.Group();
-      shape3DContainer.position.set(0, 2.5, 0);
-      build3DShapeMesh(challenge.type, challenge.dims, shape3DContainer);
-      holographicPanelGroup.add(shape3DContainer);
-
-      // 2. Criar o Painel Textual Holográfico 3D
-      const panelCanvas = document.createElement('canvas');
-      panelCanvas.width = 1024;
-      panelCanvas.height = 512;
-      const ctx = panelCanvas.getContext('2d');
-
-      // Fundo holográfico
-      ctx.fillStyle = 'rgba(5, 15, 35, 0.85)';
-      ctx.fillRect(0, 0, 1024, 512);
-      ctx.strokeStyle = '#00f0ff';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(10, 10, 1004, 492);
-
-      // Título e Pergunta
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = 'Bold 36px Segoe UI';
-      ctx.fillText(challenge.name.toUpperCase(), 40, 60);
-
-      ctx.fillStyle = '#ffd700';
-      ctx.font = '28px Segoe UI';
-      ctx.fillText("MEDIDAS:", 40, 110);
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '26px Segoe UI';
-      challenge.labels.forEach((lbl, idx) => {
-        ctx.fillText("• " + lbl, 50, 150 + (idx * 35));
-      });
-
-      ctx.fillStyle = '#00ff88';
-      ctx.font = 'Bold 32px Segoe UI';
-      ctx.fillText(challenge.question, 40, 320);
-
-      const panelTexture = new THREE.CanvasTexture(panelCanvas);
-      const panelGeo = new THREE.PlaneGeometry(5, 2.5);
-      const panelMat = new THREE.MeshBasicMaterial({ map: panelTexture, transparent: true, side: THREE.DoubleSide });
-      const panelMesh = new THREE.Mesh(panelGeo, panelMat);
-      panelMesh.position.set(-3.5, 3, 0);
-      panelMesh.rotation.y = 0.3;
-      holographicPanelGroup.add(panelMesh);
-
-      // 3. Botões 3D para as Alternativas
-      const buttonGroup = new THREE.Group();
-      buttonGroup.position.set(3.8, 2, 0);
-      buttonGroup.rotation.y = -0.3;
-
-      challenge.options.forEach((optText, idx) => {
-        const btnGeo = new THREE.BoxGeometry(2.8, 0.6, 0.2);
-        const btnMat = new THREE.MeshStandardMaterial({ color: 0x0a2540, metalness: 0.5, roughness: 0.2 });
-        const btnMesh = new THREE.Mesh(btnGeo, btnMat);
-        btnMesh.position.y = 1.2 - (idx * 0.8);
-
-        // Texto da Alternativa no Botão
-        const btnCanvas = document.createElement('canvas');
-        btnCanvas.width = 512;
-        btnCanvas.height = 128;
-        const bCtx = btnCanvas.getContext('2d');
-        bCtx.fillStyle = '#0a2540';
-        bCtx.fillRect(0, 0, 512, 128);
-        bCtx.strokeStyle = '#00f0ff';
-        bCtx.lineWidth = 6;
-        bCtx.strokeRect(4, 4, 504, 120);
-        bCtx.fillStyle = '#ffffff';
-        bCtx.font = 'Bold 44px Segoe UI';
-        const letter = String.fromCharCode(65 + idx); // A, B, C, D
-        bCtx.fillText(`${letter})  ${optText}`, 30, 80);
-
-        const btnTex = new THREE.CanvasTexture(btnCanvas);
-        const txtGeo = new THREE.PlaneGeometry(2.7, 0.55);
-        const txtMat = new THREE.MeshBasicMaterial({ map: btnTex });
-        const txtMesh = new THREE.Mesh(txtGeo, txtMat);
-        txtMesh.position.z = 0.11;
-        btnMesh.add(txtMesh);
-
-        btnMesh.userData = {
-          type: 'option_button',
-          optionIndex: idx,
-          correctIndex: challenge.correct,
-          challengeData: challenge
-        };
-
-        buttonGroup.add(btnMesh);
-        activeInteractiveObjects.push(btnMesh);
-      });
-
-      holographicPanelGroup.add(buttonGroup);
-      scene.add(holographicPanelGroup);
-    }
-
-    /* Construção das Formas Geométricas 3D Específicas com Linhas Guia */
-    function build3DShapeMesh(type, dims, container) {
-      let geo, mat;
-      mat = new THREE.MeshStandardMaterial({
-        color: 0x00f0ff,
-        wireframe: false,
-        transparent: true,
-        opacity: 0.75,
-        roughness: 0.2
-      });
-
-      const lineMat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 3 });
-
-      if (type === 'quadrado') {
-        geo = new THREE.BoxGeometry(2, 2, 0.1);
-      } else if (type === 'retangulo') {
-        geo = new THREE.BoxGeometry(3, 1.8, 0.1);
-      } else if (type === 'triangulo') {
-        geo = new THREE.ConeGeometry(1.8, 2, 3);
-      } else if (type === 'circulo') {
-        geo = new THREE.CylinderGeometry(1.8, 1.8, 0.1, 32);
-      } else if (type === 'cubo') {
-        geo = new THREE.BoxGeometry(2, 2, 2);
-      } else if (type === 'paralelepipedo') {
-        geo = new THREE.BoxGeometry(2.8, 1.4, 1.8);
-      } else if (type === 'cilindro') {
-        geo = new THREE.CylinderGeometry(1.2, 1.2, 2.5, 32);
-      } else if (type === 'prisma') {
-        geo = new THREE.CylinderGeometry(1.5, 1.5, 2.5, 3);
-      } else if (type === 'torre_final') {
-        // Objeto Composto: Base Cúbica + Topo Piramidal
-        const baseMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), mat);
-        const topMesh = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.5, 4), mat);
-        topMesh.position.y = 1.75;
-        container.add(baseMesh);
-        container.add(topMesh);
-        return;
-      }
-
-      const mesh = new THREE.Mesh(geo, mat);
-      container.add(mesh);
-
-      // Adicionar Borda / Arestas em Destaque (Wireframe Glow)
-      const edges = new THREE.EdgesGeometry(geo);
-      const wireframe = new THREE.LineSegments(edges, lineMat);
-      container.add(wireframe);
-    }
-
-    /* =========================================================================
-       SISTEMA DE RAYCASTING E INTERAÇÕES
-       ========================================================================= */
-    function checkInteractions() {
-      raycaster.setFromCamera(mousePointer, camera);
-      const intersects = raycaster.intersectObjects(activeInteractiveObjects, true);
-
-      if (intersects.length > 0) {
-        let obj = intersects[0].object;
-        while (obj && !obj.userData.type && obj.parent) {
-          obj = obj.parent;
+        // BANCO DE QUESTÕES (Área de Figuras Planas)
+        const questions = [
+            {
+                text: "Qual a area de um QUADRADO\ncom lado de 5 metros?",
+                answers: ["20 m2", "25 m2", "10 m2"],
+                correct: 1 // Índice da resposta correta (0, 1 ou 2)
+            },
+            {
+                text: "Calcule a area do RETANGULO:\nBase = 6m, Altura = 3m",
+                answers: ["18 m2", "9 m2", "12 m2"],
+                correct: 0
+            },
+            {
+                text: "Um TRIANGULO tem base de 4m\ne altura de 5m. Qual a area?",
+                answers: ["20 m2", "10 m2", "9 m2"],
+                correct: 1
+            },
+            {
+                text: "Area do LOSANGO com diagonais\nmaior = 8m e menor = 4m:",
+                answers: ["32 m2", "12 m2", "16 m2"],
+                correct: 2
+            },
+            {
+                text: "Area de um TRAPEZIO:\nB=6m, b=4m, altura=3m",
+                answers: ["15 m2", "30 m2", "13 m2"],
+                correct: 0
+            }
+        ];
+
+        // VARIÁVEIS DE ESTADO DO JOGO
+        let currentQuestionIndex = 0;
+        let lives = 3;
+        let isGameOver = false;
+
+        // ELEMENTOS DO DOM A-FRAME
+        const elQuestionText = document.getElementById('question-text');
+        const elHudLives = document.getElementById('hud-lives');
+        const elHudScore = document.getElementById('hud-score');
+        const elScreenFlash = document.getElementById('screen-flash');
+        
+        const boxes = [
+            document.getElementById('box-0'),
+            document.getElementById('box-1'),
+            document.getElementById('box-2')
+        ];
+        const texts = [
+            document.getElementById('text-0'),
+            document.getElementById('text-1'),
+            document.getElementById('text-2')
+        ];
+
+        // FUNÇÃO PARA INICIAR/REINICIAR O JOGO
+        function startGame() {
+            currentQuestionIndex = 0;
+            lives = 3;
+            isGameOver = false;
+            updateHUD();
+            loadQuestion();
+            
+            // Reabilita os blocos
+            boxes.forEach(box => box.setAttribute('visible', 'true'));
         }
 
-        if (obj && obj.userData) {
-          if (obj.userData.type === 'option_button') {
-            handleAnswerSelection(obj.userData);
-          } else if (obj.userData.type === 'collectible') {
-            collectGem(obj);
-          }
+        // FUNÇÃO PARA CARREGAR A PERGUNTA ATUAL
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                victory();
+                return;
+            }
+
+            const q = questions[currentQuestionIndex];
+            elQuestionText.setAttribute('value', q.text);
+            
+            for (let i = 0; i < 3; i++) {
+                texts[i].setAttribute('value', q.answers[i]);
+                // Reseta a cor dos blocos para o padrão
+                boxes[i].setAttribute('material', 'color', '#F0A000');
+            }
+            updateHUD();
         }
-      }
-    }
 
-    /* Coleta de Cristais/Moedas Secretas */
-    function collectGem(gemMesh) {
-      sfx.playCollect();
-      score += 50;
-      updateHUD();
-      scene.remove(gemMesh);
-      activeInteractiveObjects = activeInteractiveObjects.filter(o => o !== gemMesh);
-    }
-
-    /* Resposta do Aluno às Questões */
-    function handleAnswerSelection(data) {
-      sfx.init();
-      if (data.optionIndex === data.correctIndex) {
-        // RESPOSTA CORRETA
-        sfx.playCorrect();
-        score += 100;
-        keysCollected++;
-        updateHUD();
-
-        // Animação Positiva Visual de Sucesso
-        triggerSuccessAnimation();
-
-        // Mostrar Modal Pedagógico Explicativo
-        showExplanationModal(data.challengeData);
-
-      } else {
-        // RESPOSTA INCORRETA
-        sfx.playIncorrect();
-        showFeedbackMessage("TENTE NOVAMENTE!", "Observe com atenção as dimensões indicadas e aplique a fórmula correspondente.");
-      }
-    }
-
-    function triggerSuccessAnimation() {
-      if (!shape3DContainer) return;
-      // Animação de rotação rápida e brilho
-      let ticks = 0;
-      const interval = setInterval(() => {
-        shape3DContainer.rotation.y += 0.2;
-        ticks++;
-        if (ticks > 20) clearInterval(interval);
-      }, 30);
-    }
-
-    function showExplanationModal(challenge) {
-      const modal = document.getElementById('explanation-modal');
-      document.getElementById('modal-title').innerText = "CORRETO!";
-      document.getElementById('modal-formula').innerText = challenge.formula;
-      document.getElementById('modal-desc').innerText = challenge.explanation + "\n\nVocê ganhou uma parte da Chave Geométrica!";
-      modal.style.display = 'block';
-    }
-
-    function closeModal() {
-      document.getElementById('explanation-modal').style.display = 'none';
-
-      // Verificar se a Fase/Desafios Foram Concluídos
-      const currentStage = GAME_DATA.stages[currentStageIdx];
-      currentChallengeIdx++;
-
-      if (currentChallengeIdx < currentStage.challenges.length) {
-        // Próximo Desafio
-        loadChallenge(currentStageIdx, currentChallengeIdx);
-      } else {
-        // Todos os Desafios da Fase Concluídos! Desbloquear Porta
-        unlockPortalDoor();
-      }
-    }
-
-    /* Desbloqueio da Porta do Portal */
-    function unlockPortalDoor() {
-      sfx.playUnlock();
-      const energyField = portalDoor.getObjectByName("energyField");
-      if (energyField) {
-        energyField.material.color.setHex(0x00ff88);
-        energyField.material.opacity = 0.2;
-      }
-
-      showFeedbackMessage("PORTAL DESBLOQUEADO!", "Você dominou todos os desafios desta etapa. Aproxime-se do portal para avançar!");
-
-      // Avançar para a próxima fase ao aproximar-se
-      setTimeout(() => {
-        if (currentStageIdx + 1 < GAME_DATA.stages.length) {
-          loadStage(currentStageIdx + 1);
-        } else {
-          // FIM DE JOGO - MISSÃO CONCLUÍDA!
-          triggerGameCompletion();
+        // ATUALIZA TEXTOS DE VIDAS E NÍVEL
+        function updateHUD() {
+            elHudLives.setAttribute('value', 'Vidas: ' + lives);
+            let heartColor = lives > 1 ? '#FF0000' : '#FFAAAA'; // Fica pálido se tiver 1 vida
+            elHudLives.setAttribute('color', heartColor);
+            
+            if(!isGameOver) {
+                elHudScore.setAttribute('value', 'Nivel: ' + (currentQuestionIndex + 1) + '/' + questions.length);
+            }
         }
-      }, 4000);
-    }
 
-    function triggerGameCompletion() {
-      const modal = document.getElementById('explanation-modal');
-      document.getElementById('modal-title').innerText = "🏆 MISSÃO CONCLUÍDA!";
-      document.getElementById('modal-formula').innerText = "PARABÉNS! VOCÊ É UM MESTRE DA GEOMETRIA!";
-      
-      let rank = "🥉 Aprendiz da Geometria";
-      if (score >= 1000) rank = "🥇 Mestre da Geometria";
-      else if (score >= 700) rank = "🥈 Especialista em Geometria";
-
-      document.getElementById('modal-desc').innerText = `Pontuação Final: ${score} Pontos\nClassificação Conquistada: ${rank}\n\nVocê aprendeu a calcular Área e Volume de diversas figuras e sólidos geométricos!`;
-      modal.style.display = 'block';
-    }
-
-    function showFeedbackMessage(title, text) {
-      const modal = document.getElementById('explanation-modal');
-      document.getElementById('modal-title').innerText = title;
-      document.getElementById('modal-formula').innerText = "";
-      document.getElementById('modal-desc').innerText = text;
-      modal.style.display = 'block';
-    }
-
-    function updateHUD() {
-      document.getElementById('score-val').innerText = score;
-      document.getElementById('keys-val').innerText = `${keysCollected}/4`;
-      
-      const totalChallenges = GAME_DATA.stages[currentStageIdx].challenges.length;
-      const progressPct = Math.min(100, Math.round((currentChallengeIdx / totalChallenges) * 100));
-      document.getElementById('progress-fill').style.width = `${progressPct}%`;
-    }
-
-    /* =========================================================================
-       LOOP PRINCIPAL DE RENDERIZAÇÃO
-       ========================================================================= */
-    function renderLoop() {
-      const delta = clock.getDelta();
-
-      // Atualizar Movimentação do Jogador
-      updatePlayerMovement(delta);
-
-      // Animação de rotação contínua e suave da figura 3D em exposição
-      if (shape3DContainer) {
-        shape3DContainer.rotation.y += 0.5 * delta;
-      }
-
-      // Animação dos Coletáveis de Cristais
-      scene.traverse((obj) => {
-        if (obj.userData && obj.userData.type === 'collectible') {
-          obj.rotation.y += 2.0 * delta;
-          obj.position.y = 1.2 + Math.sin(clock.getElapsedTime() * 3) * 0.1;
+        // EFEITO DE PISCAR A TELA (Verde = Acerto, Vermelho = Erro)
+        function flashScreen(color) {
+            elScreenFlash.setAttribute('material', 'color', color);
+            elScreenFlash.setAttribute('animation', 'property: material.opacity; from: 0.8; to: 0; dur: 500; easing: easeOutQuad');
         }
-      });
 
-      // Raycast Crosshair Hover Feedback
-      raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-      const intersects = raycaster.intersectObjects(activeInteractiveObjects, true);
-      const crosshair = document.getElementById('crosshair');
-      if (intersects.length > 0) {
-        crosshair.classList.add('active');
-      } else {
-        crosshair.classList.remove('active');
-      }
+        // LÓGICA DE VERIFICAÇÃO DA RESPOSTA
+        function handleAnswer(selectedIndex) {
+            if (isGameOver) {
+                // Se o jogo acabou e clicou de novo, reinicia
+                startGame();
+                return;
+            }
 
-      renderer.render(scene, camera);
-    }
+            const q = questions[currentQuestionIndex];
+            
+            if (selectedIndex === q.correct) {
+                // ACERTOU
+                flashScreen('#00FF00'); // Pisca verde
+                boxes[selectedIndex].setAttribute('material', 'color', '#00FF00');
+                
+                // Aguarda 1 segundo e avança
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    loadQuestion();
+                }, 1000);
 
-    /* =========================================================================
-       INÍCIO DO JOGO
-       ========================================================================= */
-    function startGame() {
-      sfx.init();
-      document.getElementById('instructions-overlay').style.display = 'none';
-      init3D();
-    }
-  </script>
+            } else {
+                // ERROU
+                flashScreen('#FF0000'); // Pisca vermelho
+                boxes[selectedIndex].setAttribute('material', 'color', '#FF0000'); // Bloco fica vermelho
+                lives--;
+                updateHUD();
+
+                if (lives <= 0) {
+                    gameOver();
+                } else {
+                    // Treme o texto da pergunta para indicar erro
+                    elQuestionText.setAttribute('animation__error', 'property: position; from: -0.1 3 -5; to: 0.1 3 -5; dur: 50; dir: alternate; loop: 5');
+                    setTimeout(() => {
+                        elQuestionText.removeAttribute('animation__error');
+                        elQuestionText.setAttribute('position', '0 3 -5');
+                        boxes[selectedIndex].setAttribute('material', 'color', '#F0A000'); // Restaura a cor
+                    }, 500);
+                }
+            }
+        }
+
+        // FUNÇÃO DE DERROTA
+        function gameOver() {
+            isGameOver = true;
+            elQuestionText.setAttribute('value', 'GAME OVER!\nVoce perdeu todas as vidas.\nClique em qualquer bloco para reiniciar.');
+            elHudScore.setAttribute('value', '');
+            boxes.forEach(box => {
+                box.setAttribute('material', 'color', '#333333');
+                box.querySelector('a-text').setAttribute('value', 'TENTAR\nNOVAMENTE');
+            });
+        }
+
+        // FUNÇÃO DE VITÓRIA
+        function victory() {
+            isGameOver = true;
+            flashScreen('#FFFF00');
+            elQuestionText.setAttribute('value', 'PARABENS!\nVoce concluiu todos os niveis!\nClique para jogar de novo.');
+            elHudScore.setAttribute('value', 'VENCEDOR!');
+            boxes.forEach(box => {
+                box.setAttribute('material', 'color', '#00FF00');
+                box.querySelector('a-text').setAttribute('value', 'JOGAR\nNOVAMENTE');
+            });
+        }
+
+        // ADICIONANDO EVENTOS DE CLIQUE/GAZE NOS BLOCOS
+        boxes.forEach((box, index) => {
+            box.addEventListener('click', function () {
+                handleAnswer(index);
+            });
+            
+            // Efeito visual ao mirar no bloco
+            box.addEventListener('mouseenter', function () {
+                if(!isGameOver) box.setAttribute('material', 'color', '#FFD700'); // Fica dourado
+            });
+            box.addEventListener('mouseleave', function () {
+                 if(!isGameOver) box.setAttribute('material', 'color', '#F0A000'); // Volta ao normal
+            });
+        });
+
+    </script>
 </body>
 </html>
 
