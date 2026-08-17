@@ -3,266 +3,387 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VR Math Quiz: Área de Figuras Planas</title>
-    <!-- Importando o A-Frame para Realidade Virtual -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <title>Desafio de Matemática: Função do 1º Grau</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        /* Uma tela de loading simples para navegadores mais lentos */
-        #loading {
-            position: absolute; width: 100%; height: 100%; background: #333; color: white;
-            display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 24px;
+        /* Custom animations and transitions */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .option-btn {
+            transition: all 0.2s ease;
+        }
+        .option-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .option-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+        .correct-answer {
+            background-color: #10B981 !important; /* Tailwind green-500 */
+            color: white !important;
+            border-color: #059669 !important;
+        }
+        .wrong-answer {
+            background-color: #EF4444 !important; /* Tailwind red-500 */
+            color: white !important;
+            border-color: #DC2626 !important;
         }
     </style>
 </head>
-<body>
-    <div id="loading">Carregando Mundo VR...</div>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800 flex items-center justify-center p-4 selection:bg-purple-200">
 
-    <a-scene background="color: #5C94FC"> <!-- Cor de fundo estilo céu de jogo clássico -->
+    <div class="max-w-2xl w-full bg-white rounded-2xl shadow-xl overflow-hidden fade-in">
         
-        <!-- ASSETS (Materiais, texturas) -->
-        <a-assets>
-            <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
-            <img id="brickTexture" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/cubes.jpg" crossorigin="anonymous">
+        <!-- Header -->
+        <header class="bg-purple-600 text-white p-6 text-center">
+            <h1 class="text-3xl font-bold mb-2">Desafio: Função do 1º Grau</h1>
+            <p class="text-purple-100">Teste seus conhecimentos em funções afins!</p>
+        </header>
+
+        <div class="p-8">
             
-            <!-- Mixin para os blocos de resposta para reaproveitar código -->
-            <a-mixin id="answer-box" geometry="primitive: box; width: 1.5; height: 1.5; depth: 1.5"
-                     material="src: #brickTexture; color: #F0A000"
-                     animation__hover="property: position; dir: alternate; dur: 1000; easing: easeInOutSine; loop: true"></a-mixin>
-        </a-assets>
+            <!-- Screen 1: Start & Name Input -->
+            <div id="start-screen" class="block">
+                <div class="text-center mb-8">
+                    <svg class="w-24 h-24 mx-auto text-purple-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                    </svg>
+                    <h2 class="text-2xl font-semibold mb-2">Bem-vindo(a)!</h2>
+                    <p class="text-gray-600 mb-6">Prepare-se para 10 perguntas sobre coeficientes, raízes e gráficos de funções do 1º grau.</p>
+                </div>
+                <div class="flex flex-col items-center">
+                    <input type="text" id="player-name" placeholder="Digite seu nome" class="w-full max-w-md px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 transition-colors mb-4 text-center text-lg font-medium" maxlength="20">
+                    <button id="start-btn" class="w-full max-w-md bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition-colors text-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                        Começar Jogo
+                    </button>
+                </div>
+            </div>
 
-        <!-- AMBIENTE (Chão) -->
-        <a-plane src="#groundTexture" rotation="-90 0 0" width="100" height="100" repeat="100 100" material="color: #7EC020"></a-plane>
-
-        <!-- JOGADOR E CÂMERA -->
-        <a-entity position="0 1.6 0"> <!-- Altura média de uma pessoa -->
-            <a-camera look-controls wasd-controls="enabled: false">
-                <!-- Cursor para interação (funciona no PC clicando e no VR olhando/gatilho) -->
-                <a-cursor color="#FF0000" 
-                          animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.1 0.1 0.1; to: 1 1 1"
-                          animation__fusing="property: fusing; startEvents: fusing; easing: easeInCubic; dur: 1500; from: 1 1 1; to: 0.1 0.1 0.1"
-                          animation__mouseleave="property: scale; startEvents: mouseleave; easing: easeInCubic; dur: 500; to: 1 1 1">
-                </a-cursor>
+            <!-- Screen 2: Game Area -->
+            <div id="game-screen" class="hidden">
+                <div class="flex justify-between items-center mb-6 text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                    <span id="question-tracker">Pergunta 1/10</span>
+                    <span id="score-tracker" class="text-purple-600">Pontuação: 0</span>
+                </div>
                 
-                <!-- Feedback visual na tela (Acerto/Erro) -->
-                <a-plane id="screen-flash" position="0 0 -0.5" width="2" height="2" material="color: white; opacity: 0; transparent: true"></a-plane>
-            </a-camera>
-        </a-entity>
+                <div class="mb-8">
+                    <h3 id="question-text" class="text-xl md:text-2xl font-bold text-gray-800 leading-tight mb-6 slide-up">
+                        <!-- Question will be injected here -->
+                    </h3>
+                    
+                    <div id="options-container" class="space-y-3">
+                        <!-- Options will be injected here -->
+                    </div>
+                </div>
 
-        <!-- INTERFACE DO JOGO (HUD) -->
-        <!-- Vidas e Pontuação -->
-        <a-text id="hud-lives" value="Vidas: 3" position="-3 4 -5" color="#FF0000" scale="1.5 1.5 1.5" font="mozillavr"></a-text>
-        <a-text id="hud-score" value="Nivel: 1/5" position="1.5 4 -5" color="#FFFF00" scale="1.5 1.5 1.5" font="mozillavr"></a-text>
+                <div class="flex justify-end">
+                    <button id="next-btn" class="hidden bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                        Próxima Pergunta ➔
+                    </button>
+                </div>
+            </div>
 
-        <!-- Pergunta -->
-        <a-entity id="question-container" position="0 3 -5">
-            <a-text id="question-text" value="Carregando..." align="center" color="#FFFFFF" scale="2 2 2" font="mozillavr"></a-text>
-        </a-entity>
+            <!-- Screen 3: Results -->
+            <div id="result-screen" class="hidden text-center">
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-2">Fim de Jogo!</h2>
+                    <p class="text-gray-600 text-lg mb-4">Bom trabalho, <span id="final-name" class="font-semibold text-purple-600"></span>.</p>
+                    <div class="inline-block bg-purple-50 border border-purple-100 rounded-full px-6 py-3 mb-6 shadow-sm">
+                        <span class="text-gray-600 uppercase font-semibold text-sm tracking-wider block mb-1">Sua Pontuação</span>
+                        <span id="final-score" class="text-4xl font-extrabold text-purple-600">0</span><span class="text-gray-500 font-medium">/100</span>
+                    </div>
+                </div>
 
-        <!-- BLOCOS DE RESPOSTA -->
-        <!-- Bloco A (Esquerda) -->
-        <a-entity class="clickable" id="box-0" mixin="answer-box" position="-2.5 1 -4" animation__hover="to: -2.5 1.2 -4">
-            <a-text id="text-0" value="A" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
-        </a-entity>
+                <div class="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8">
+                    <h3 class="text-xl font-bold mb-4 flex items-center justify-center text-gray-800">
+                        <svg class="w-6 h-6 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                        Top 10 Melhores
+                    </h3>
+                    <ul id="leaderboard-list" class="text-left space-y-2">
+                        <!-- Leaderboard items will be injected here -->
+                    </ul>
+                </div>
 
-        <!-- Bloco B (Centro) -->
-        <a-entity class="clickable" id="box-1" mixin="answer-box" position="0 1 -4" animation__hover="to: 0 1.2 -4">
-            <a-text id="text-1" value="B" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
-        </a-entity>
+                <button id="restart-btn" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md">
+                    Jogar Novamente
+                </button>
+            </div>
 
-        <!-- Bloco C (Direita) -->
-        <a-entity class="clickable" id="box-2" mixin="answer-box" position="2.5 1 -4" animation__hover="to: 2.5 1.2 -4">
-            <a-text id="text-2" value="C" align="center" position="0 0 0.8" scale="2 2 2" color="#FFFFFF"></a-text>
-        </a-entity>
-
-    </a-scene>
+        </div>
+    </div>
 
     <script>
-        // Esconde a tela de loading quando a cena carregar
-        document.querySelector('a-scene').addEventListener('loaded', function () {
-            document.getElementById('loading').style.display = 'none';
-            startGame();
-        });
-
-        // BANCO DE QUESTÕES (Área de Figuras Planas)
+        // Quiz Data
         const questions = [
             {
-                text: "Qual a area de um QUADRADO\ncom lado de 5 metros?",
-                answers: ["20 m2", "25 m2", "10 m2"],
-                correct: 1 // Índice da resposta correta (0, 1 ou 2)
+                question: "Qual é a forma geral de uma função do 1º grau (ou função afim)?",
+                options: ["f(x) = ax² + bx + c", "f(x) = ax + b", "f(x) = a/x + b", "f(x) = bˣ"],
+                answer: 1 // Index of correct option
             },
             {
-                text: "Calcule a area do RETANGULO:\nBase = 6m, Altura = 3m",
-                answers: ["18 m2", "9 m2", "12 m2"],
-                correct: 0
+                question: "Na função f(x) = 3x - 5, qual é o valor do coeficiente angular (a) e do coeficiente linear (b), respectivamente?",
+                options: ["-5 e 3", "3 e -5", "5 e -3", "3 e 5"],
+                answer: 1
             },
             {
-                text: "Um TRIANGULO tem base de 4m\ne altura de 5m. Qual a area?",
-                answers: ["20 m2", "10 m2", "9 m2"],
-                correct: 1
+                question: "O que o coeficiente angular 'a' determina no gráfico de uma função do 1º grau?",
+                options: ["Onde a reta corta o eixo y", "A inclinação da reta", "A concavidade da parábola", "Onde a reta corta o eixo x"],
+                answer: 1
             },
             {
-                text: "Area do LOSANGO com diagonais\nmaior = 8m e menor = 4m:",
-                answers: ["32 m2", "12 m2", "16 m2"],
-                correct: 2
+                question: "Se o coeficiente angular 'a' de uma função for negativo (a < 0), podemos afirmar que a função é:",
+                options: ["Constante", "Crescente", "Decrescente", "Exponencial"],
+                answer: 2
             },
             {
-                text: "Area de um TRAPEZIO:\nB=6m, b=4m, altura=3m",
-                answers: ["15 m2", "30 m2", "13 m2"],
-                correct: 0
+                question: "Como se calcula a raiz (ou zero) de uma função do 1º grau do tipo f(x) = ax + b?",
+                options: ["x = -b / a", "x = b / a", "x = -a / b", "x = a + b"],
+                answer: 0
+            },
+            {
+                question: "Qual é a raiz da função f(x) = 2x - 8?",
+                options: ["-4", "2", "4", "8"],
+                answer: 2 // 2x - 8 = 0 => 2x = 8 => x = 4
+            },
+            {
+                question: "O gráfico de toda função do 1º grau (f(x) = ax + b, com a ≠ 0) é uma:",
+                options: ["Parábola", "Hipérbole", "Reta", "Circunferência"],
+                answer: 2
+            },
+            {
+                question: "Em qual ponto a reta da função f(x) = -4x + 7 intercepta (corta) o eixo y (eixo das ordenadas)?",
+                options: ["(0, -4)", "(-4, 0)", "(7, 0)", "(0, 7)"],
+                answer: 3
+            },
+            {
+                question: "Seja a função f(x) = -2x + 10. Qual é o valor de f(3)?",
+                options: ["4", "6", "8", "16"],
+                answer: 0 // -2(3) + 10 = -6 + 10 = 4
+            },
+            {
+                question: "Uma operadora de celular cobra um valor fixo de R$ 35,00 mensais mais R$ 0,50 por minuto de ligação. Qual função representa o valor a pagar (V) em função dos minutos utilizados (x)?",
+                options: ["V(x) = 35x + 0,50", "V(x) = 0,50x + 35", "V(x) = 35 + x", "V(x) = 35,50x"],
+                answer: 1
             }
         ];
 
-        // VARIÁVEIS DE ESTADO DO JOGO
+        // State Variables
         let currentQuestionIndex = 0;
-        let lives = 3;
-        let isGameOver = false;
+        let score = 0;
+        let playerName = "";
+        let pointsPerQuestion = 10;
+        let leaderboard = JSON.parse(localStorage.getItem('funcao1grauLeaderboard')) || [];
 
-        // ELEMENTOS DO DOM A-FRAME
-        const elQuestionText = document.getElementById('question-text');
-        const elHudLives = document.getElementById('hud-lives');
-        const elHudScore = document.getElementById('hud-score');
-        const elScreenFlash = document.getElementById('screen-flash');
+        // DOM Elements
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            result: document.getElementById('result-screen')
+        };
         
-        const boxes = [
-            document.getElementById('box-0'),
-            document.getElementById('box-1'),
-            document.getElementById('box-2')
-        ];
-        const texts = [
-            document.getElementById('text-0'),
-            document.getElementById('text-1'),
-            document.getElementById('text-2')
-        ];
+        const playerNameInput = document.getElementById('player-name');
+        const startBtn = document.getElementById('start-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const questionTracker = document.getElementById('question-tracker');
+        const scoreTracker = document.getElementById('score-tracker');
+        
+        const finalNameEl = document.getElementById('final-name');
+        const finalScoreEl = document.getElementById('final-score');
+        const leaderboardList = document.getElementById('leaderboard-list');
 
-        // FUNÇÃO PARA INICIAR/REINICIAR O JOGO
+        // Input validation for start button
+        playerNameInput.addEventListener('input', () => {
+            startBtn.disabled = playerNameInput.value.trim().length === 0;
+        });
+
+        // Initialize start state
+        startBtn.disabled = true;
+
+        // Navigation Functions
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => {
+                screen.classList.add('hidden');
+                screen.classList.remove('block');
+            });
+            screens[screenName].classList.remove('hidden');
+            screens[screenName].classList.add('block');
+        }
+
+        // Game Logic Functions
         function startGame() {
+            playerName = playerNameInput.value.trim();
+            if (!playerName) return;
+
             currentQuestionIndex = 0;
-            lives = 3;
-            isGameOver = false;
-            updateHUD();
+            score = 0;
+            updateScoreDisplay();
+            
+            // Shuffle questions (optional)
+            // questions.sort(() => Math.random() - 0.5);
+
             loadQuestion();
-            
-            // Reabilita os blocos
-            boxes.forEach(box => box.setAttribute('visible', 'true'));
+            showScreen('game');
         }
 
-        // FUNÇÃO PARA CARREGAR A PERGUNTA ATUAL
         function loadQuestion() {
-            if (currentQuestionIndex >= questions.length) {
-                victory();
-                return;
-            }
-
-            const q = questions[currentQuestionIndex];
-            elQuestionText.setAttribute('value', q.text);
-            
-            for (let i = 0; i < 3; i++) {
-                texts[i].setAttribute('value', q.answers[i]);
-                // Reseta a cor dos blocos para o padrão
-                boxes[i].setAttribute('material', 'color', '#F0A000');
-            }
-            updateHUD();
-        }
-
-        // ATUALIZA TEXTOS DE VIDAS E NÍVEL
-        function updateHUD() {
-            elHudLives.setAttribute('value', 'Vidas: ' + lives);
-            let heartColor = lives > 1 ? '#FF0000' : '#FFAAAA'; // Fica pálido se tiver 1 vida
-            elHudLives.setAttribute('color', heartColor);
-            
-            if(!isGameOver) {
-                elHudScore.setAttribute('value', 'Nivel: ' + (currentQuestionIndex + 1) + '/' + questions.length);
-            }
-        }
-
-        // EFEITO DE PISCAR A TELA (Verde = Acerto, Vermelho = Erro)
-        function flashScreen(color) {
-            elScreenFlash.setAttribute('material', 'color', color);
-            elScreenFlash.setAttribute('animation', 'property: material.opacity; from: 0.8; to: 0; dur: 500; easing: easeOutQuad');
-        }
-
-        // LÓGICA DE VERIFICAÇÃO DA RESPOSTA
-        function handleAnswer(selectedIndex) {
-            if (isGameOver) {
-                // Se o jogo acabou e clicou de novo, reinicia
-                startGame();
-                return;
-            }
-
             const q = questions[currentQuestionIndex];
             
-            if (selectedIndex === q.correct) {
-                // ACERTOU
-                flashScreen('#00FF00'); // Pisca verde
-                boxes[selectedIndex].setAttribute('material', 'color', '#00FF00');
+            questionTracker.textContent = `Pergunta ${currentQuestionIndex + 1}/${questions.length}`;
+            
+            // Trigger reflow for animation
+            questionText.classList.remove('slide-up');
+            void questionText.offsetWidth;
+            questionText.classList.add('slide-up');
+            
+            questionText.textContent = q.question;
+            
+            optionsContainer.innerHTML = '';
+            nextBtn.classList.add('hidden');
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-purple-500 hover:bg-purple-50 focus:outline-none font-medium text-gray-700 slide-up';
+                btn.style.animationDelay = `${index * 0.1}s`;
                 
-                // Aguarda 1 segundo e avança
-                setTimeout(() => {
-                    currentQuestionIndex++;
-                    loadQuestion();
-                }, 1000);
+                const letter = String.fromCharCode(65 + index);
+                btn.innerHTML = `<span class="inline-block w-8 font-bold text-gray-400">${letter}.</span> ${opt}`;
+                
+                btn.onclick = () => selectOption(index, btn);
+                optionsContainer.appendChild(btn);
+            });
+        }
 
+        function selectOption(selectedIndex, selectedBtn) {
+            const q = questions[currentQuestionIndex];
+            const allBtns = optionsContainer.querySelectorAll('button');
+            
+            // Disable all buttons
+            allBtns.forEach(btn => btn.disabled = true);
+
+            // Check answer
+            if (selectedIndex === q.answer) {
+                selectedBtn.classList.add('correct-answer');
+                score += pointsPerQuestion;
+                updateScoreDisplay();
             } else {
-                // ERROU
-                flashScreen('#FF0000'); // Pisca vermelho
-                boxes[selectedIndex].setAttribute('material', 'color', '#FF0000'); // Bloco fica vermelho
-                lives--;
-                updateHUD();
+                selectedBtn.classList.add('wrong-answer');
+                // Highlight correct answer
+                allBtns[q.answer].classList.add('correct-answer', 'opacity-70');
+            }
 
-                if (lives <= 0) {
-                    gameOver();
-                } else {
-                    // Treme o texto da pergunta para indicar erro
-                    elQuestionText.setAttribute('animation__error', 'property: position; from: -0.1 3 -5; to: 0.1 3 -5; dur: 50; dir: alternate; loop: 5');
-                    setTimeout(() => {
-                        elQuestionText.removeAttribute('animation__error');
-                        elQuestionText.setAttribute('position', '0 3 -5');
-                        boxes[selectedIndex].setAttribute('material', 'color', '#F0A000'); // Restaura a cor
-                    }, 500);
-                }
+            nextBtn.classList.remove('hidden');
+        }
+
+        function updateScoreDisplay() {
+            scoreTracker.textContent = `Pontuação: ${score}`;
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                endGame();
             }
         }
 
-        // FUNÇÃO DE DERROTA
-        function gameOver() {
-            isGameOver = true;
-            elQuestionText.setAttribute('value', 'GAME OVER!\nVoce perdeu todas as vidas.\nClique em qualquer bloco para reiniciar.');
-            elHudScore.setAttribute('value', '');
-            boxes.forEach(box => {
-                box.setAttribute('material', 'color', '#333333');
-                box.querySelector('a-text').setAttribute('value', 'TENTAR\nNOVAMENTE');
-            });
-        }
-
-        // FUNÇÃO DE VITÓRIA
-        function victory() {
-            isGameOver = true;
-            flashScreen('#FFFF00');
-            elQuestionText.setAttribute('value', 'PARABENS!\nVoce concluiu todos os niveis!\nClique para jogar de novo.');
-            elHudScore.setAttribute('value', 'VENCEDOR!');
-            boxes.forEach(box => {
-                box.setAttribute('material', 'color', '#00FF00');
-                box.querySelector('a-text').setAttribute('value', 'JOGAR\nNOVAMENTE');
-            });
-        }
-
-        // ADICIONANDO EVENTOS DE CLIQUE/GAZE NOS BLOCOS
-        boxes.forEach((box, index) => {
-            box.addEventListener('click', function () {
-                handleAnswer(index);
-            });
+        function endGame() {
+            finalNameEl.textContent = playerName;
+            finalScoreEl.textContent = score;
             
-            // Efeito visual ao mirar no bloco
-            box.addEventListener('mouseenter', function () {
-                if(!isGameOver) box.setAttribute('material', 'color', '#FFD700'); // Fica dourado
+            saveScore();
+            renderLeaderboard();
+            
+            showScreen('result');
+        }
+
+        // Leaderboard Functions
+        function saveScore() {
+            const newEntry = { name: playerName, score: score, date: new Date().toLocaleDateString('pt-BR') };
+            leaderboard.push(newEntry);
+            
+            // Sort descending by score
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Keep only top 10
+            leaderboard = leaderboard.slice(0, 10);
+            
+            // Save to localStorage (using a different key so it doesn't mix with the geometry quiz)
+            localStorage.setItem('funcao1grauLeaderboard', JSON.stringify(leaderboard));
+        }
+
+        function renderLeaderboard() {
+            leaderboardList.innerHTML = '';
+            
+            if (leaderboard.length === 0) {
+                leaderboardList.innerHTML = '<li class="text-gray-500 text-center py-2">Nenhuma pontuação registrada ainda.</li>';
+                return;
+            }
+
+            leaderboard.forEach((entry, index) => {
+                const li = document.createElement('li');
+                
+                // Styling for top 3
+                let rankClass = "bg-white text-gray-700 border-gray-100";
+                let icon = `<span class="w-6 text-center font-bold text-gray-400">${index + 1}</span>`;
+                
+                if (index === 0) {
+                    rankClass = "bg-yellow-100 text-yellow-800 border-yellow-200 font-semibold";
+                    icon = '🏆';
+                } else if (index === 1) {
+                    rankClass = "bg-gray-200 text-gray-800 border-gray-300 font-medium";
+                    icon = '🥈';
+                } else if (index === 2) {
+                    rankClass = "bg-orange-100 text-orange-800 border-orange-200 font-medium";
+                    icon = '🥉';
+                }
+
+                li.className = `flex justify-between items-center p-3 rounded-lg border ${rankClass} shadow-sm`;
+                li.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="mr-3 w-6 text-center">${icon}</span>
+                        <span class="truncate max-w-[120px] sm:max-w-[200px]">${entry.name}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs opacity-70">${entry.date}</span>
+                        <span class="font-bold">${entry.score} pts</span>
+                    </div>
+                `;
+                leaderboardList.appendChild(li);
             });
-            box.addEventListener('mouseleave', function () {
-                 if(!isGameOver) box.setAttribute('material', 'color', '#F0A000'); // Volta ao normal
-            });
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startGame);
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !startBtn.disabled) {
+                startGame();
+            }
+        });
+        nextBtn.addEventListener('click', nextQuestion);
+        restartBtn.addEventListener('click', () => {
+            playerNameInput.value = '';
+            startBtn.disabled = true;
+            showScreen('start');
         });
 
     </script>
 </body>
 </html>
-
