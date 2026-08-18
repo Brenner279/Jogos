@@ -1,548 +1,782 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desafios Matemáticos: Estudo das Funções</title>
+    <title>Desafios Matemáticos - Funções</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Fundo quadriculado de caderno */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -2;
+        }
+
+        /* Efeito de Vidro (Glassmorphism) */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        /* Animações dos símbolos flutuantes */
+        @keyframes floatUp {
+            0% {
+                transform: translateY(110vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% {
+                transform: translateY(-10vh) rotate(360deg) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .math-symbol {
+            position: fixed;
+            font-size: 2.5rem;
+            font-weight: bold;
+            z-index: -1;
+            user-select: none;
+            pointer-events: none;
+            animation: floatUp linear infinite;
+        }
+
+        /* Cores temáticas dos símbolos */
+        .text-afim { color: rgba(59, 130, 246, 0.5); } /* Azul */
+        .text-quadratica { color: rgba(16, 185, 129, 0.5); } /* Verde */
+        .text-exponencial { color: rgba(139, 92, 246, 0.5); } /* Roxo */
+        .text-logaritmica { color: rgba(249, 115, 22, 0.5); } /* Laranja */
+        .text-default { color: rgba(156, 163, 175, 0.5); } /* Cinzento para o menu */
+
+        /* Transições suaves */
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .screen.active {
+            display: flex;
+        }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .slide-up { animation: slideUp 0.4s ease-out; }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
-        .option-btn { transition: all 0.2s ease; }
-        .option-btn:hover:not(:disabled) {
-            transform: scale(1.01);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        .option-btn {
+            transition: all 0.2s;
         }
-        .option-btn:active:not(:disabled) { transform: scale(0.99); }
-        
-        .correct-answer {
-            background-color: #10B981 !important; /* Green */
-            color: white !important;
-            border-color: #059669 !important;
+        .option-btn:hover {
+            transform: translateX(5px);
         }
-        
-        .wrong-answer {
-            background-color: #EF4444 !important; /* Red */
-            color: white !important;
-            border-color: #DC2626 !important;
-        }
+        .correct-anim { animation: pulseGreen 0.5s; background-color: #22c55e !important; color: white !important; border-color: #22c55e !important;}
+        .wrong-anim { animation: shakeRed 0.5s; background-color: #ef4444 !important; color: white !important; border-color: #ef4444 !important;}
 
-        /* Topic Colors */
-        .theme-afim { --theme-color: #3B82F6; --theme-bg: #EFF6FF; --theme-border: #93C5FD; }
-        .theme-quadratica { --theme-color: #10B981; --theme-bg: #ECFDF5; --theme-border: #6EE7B7; }
-        .theme-exponencial { --theme-color: #8B5CF6; --theme-bg: #F5F3FF; --theme-border: #C4B5FD; }
-        .theme-logaritmica { --theme-color: #F97316; --theme-bg: #FFF7ED; --theme-border: #FDBA74; }
+        @keyframes pulseGreen { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes shakeRed { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-gray-800 flex items-center justify-center p-4 selection:bg-gray-200">
+<body class="text-slate-800 flex items-center justify-center p-4">
 
-    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden fade-in">
+    <!-- Fundo base -->
+    <div class="bg-grid"></div>
+    <!-- Recipiente para símbolos matemáticos gerados por JS -->
+    <div id="symbols-container"></div>
+
+    <div class="w-full max-w-2xl glass-panel rounded-3xl p-8 relative overflow-hidden">
         
-        <!-- Global Header -->
-        <header id="main-header" class="bg-slate-800 text-white p-6 text-center transition-colors duration-500">
-            <h1 id="header-title" class="text-3xl font-bold mb-2">Portal de Matemática</h1>
-            <p id="header-subtitle" class="text-slate-300">Domine o universo das Funções!</p>
-        </header>
-
-        <div class="p-6 md:p-8">
+        <!-- TELA 1: MENU PRINCIPAL -->
+        <div id="menu-screen" class="screen active flex-col items-center">
+            <h1 class="text-4xl font-bold mb-2 text-center text-slate-800">Desafios Matemáticos</h1>
+            <p class="text-slate-500 mb-8 text-center">Escolha o conteúdo e teste os seus conhecimentos!</p>
             
-            <!-- Screen 1: Main Menu -->
-            <div id="menu-screen" class="block">
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-semibold mb-2">Identifique-se para jogar</h2>
-                    <p class="text-gray-500 mb-6">Seus pontos serão registrados no ranking do tema escolhido.</p>
-                    <input type="text" id="player-name" placeholder="Digite seu nome (Ex: João, Maria)" class="w-full max-w-md px-4 py-3 rounded-lg border-2 border-gray-300 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-colors mb-8 text-center text-lg font-medium" maxlength="20">
-                </div>
-
-                <h3 class="text-xl font-bold text-center text-gray-700 mb-6">Escolha o seu Desafio</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                <button onclick="selectTheme('afim')" class="p-6 rounded-2xl bg-blue-50 border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-blue-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = ax + b</div>
+                    <h2 class="text-xl font-bold text-blue-900">Função Afim</h2>
+                    <p class="text-sm text-blue-700/70 mt-1">Declives, ordenadas na origem e gráficos retilíneos.</p>
+                </button>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Afim -->
-                    <button onclick="startGame('afim')" class="topic-btn group relative overflow-hidden rounded-xl border-2 border-blue-200 bg-blue-50 p-6 text-left hover:bg-blue-100 hover:border-blue-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-xl font-bold text-blue-700">Função Afim (1º Grau)</h4>
-                            <span class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">1</span>
-                        </div>
-                        <p class="text-sm text-blue-600 opacity-80">Reta, coeficientes angular e linear, raízes e aplicações.</p>
-                    </button>
+                <button onclick="selectTheme('quadratica')" class="p-6 rounded-2xl bg-emerald-50 border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-emerald-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = ax² + bx + c</div>
+                    <h2 class="text-xl font-bold text-emerald-900">Função Quadrática</h2>
+                    <p class="text-sm text-emerald-700/70 mt-1">Parábolas, vértices e raízes.</p>
+                </button>
 
-                    <!-- Quadrática -->
-                    <button onclick="startGame('quadratica')" class="topic-btn group relative overflow-hidden rounded-xl border-2 border-green-200 bg-green-50 p-6 text-left hover:bg-green-100 hover:border-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-xl font-bold text-green-700">Função Quadrática</h4>
-                            <span class="bg-green-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">2</span>
-                        </div>
-                        <p class="text-sm text-green-600 opacity-80">Parábola, vértices, Bhaskara, máximos e mínimos.</p>
-                    </button>
+                <button onclick="selectTheme('exponencial')" class="p-6 rounded-2xl bg-purple-50 border-2 border-purple-200 hover:border-purple-500 hover:bg-purple-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-purple-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = a˟</div>
+                    <h2 class="text-xl font-bold text-purple-900">Função Exponencial</h2>
+                    <p class="text-sm text-purple-700/70 mt-1">Crescimento, decaimento e propriedades.</p>
+                </button>
 
-                    <!-- Exponencial -->
-                    <button onclick="startGame('exponencial')" class="topic-btn group relative overflow-hidden rounded-xl border-2 border-purple-200 bg-purple-50 p-6 text-left hover:bg-purple-100 hover:border-purple-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-xl font-bold text-purple-700">Função Exponencial</h4>
-                            <span class="bg-purple-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">3</span>
-                        </div>
-                        <p class="text-sm text-purple-600 opacity-80">Crescimento acelerado, decaimento, juros compostos.</p>
-                    </button>
-
-                    <!-- Logarítmica -->
-                    <button onclick="startGame('logaritmica')" class="topic-btn group relative overflow-hidden rounded-xl border-2 border-orange-200 bg-orange-50 p-6 text-left hover:bg-orange-100 hover:border-orange-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        <div class="flex items-center justify-between mb-2">
-                            <h4 class="text-xl font-bold text-orange-700">Função Logarítmica</h4>
-                            <span class="bg-orange-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">4</span>
-                        </div>
-                        <p class="text-sm text-orange-600 opacity-80">Propriedades, equações, base e inverso da exponencial.</p>
-                    </button>
-                </div>
+                <button onclick="selectTheme('logaritmica')" class="p-6 rounded-2xl bg-orange-50 border-2 border-orange-200 hover:border-orange-500 hover:bg-orange-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-orange-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = logₐ(x)</div>
+                    <h2 class="text-xl font-bold text-orange-900">Função Logarítmica</h2>
+                    <p class="text-sm text-orange-700/70 mt-1">Logaritmos, propriedades e domínios.</p>
+                </button>
             </div>
-
-            <!-- Screen 2: Game Area -->
-            <div id="game-screen" class="hidden">
-                <div class="flex justify-between items-center mb-6 text-sm font-semibold uppercase tracking-wide">
-                    <button onclick="returnToMenu()" class="text-gray-500 hover:text-gray-800 flex items-center">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        Voltar
-                    </button>
-                    <span id="question-tracker" class="text-gray-500">Pergunta 1/10</span>
-                    <span id="score-tracker" class="font-bold">Pontuação: 0</span>
-                </div>
-                
-                <div class="mb-8">
-                    <h3 id="question-text" class="text-xl md:text-2xl font-bold text-gray-800 leading-tight mb-6 slide-up">
-                        <!-- Question text -->
-                    </h3>
-                    
-                    <div id="options-container" class="space-y-3">
-                        <!-- Options -->
-                    </div>
-                </div>
-
-                <div class="flex justify-end">
-                    <button id="next-btn" class="hidden text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-md">
-                        Próxima Pergunta ➔
-                    </button>
-                </div>
-            </div>
-
-            <!-- Screen 3: Results & Leaderboard -->
-            <div id="result-screen" class="hidden text-center">
-                <div class="mb-8">
-                    <h2 class="text-3xl font-bold mb-2">Desafio Concluído!</h2>
-                    <p class="text-gray-600 text-lg mb-4">Parabéns, <span id="final-name" class="font-semibold"></span>!</p>
-                    <div class="inline-block border rounded-full px-8 py-4 mb-6 shadow-sm" id="score-badge">
-                        <span class="text-gray-600 uppercase font-semibold text-sm tracking-wider block mb-1">Pontuação Final</span>
-                        <span id="final-score" class="text-5xl font-extrabold">0</span><span class="text-gray-500 font-medium">/100</span>
-                    </div>
-                </div>
-
-                <div class="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-8 max-w-lg mx-auto">
-                    <h3 class="text-xl font-bold mb-4 flex items-center justify-center text-gray-800">
-                        <svg class="w-6 h-6 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                        Top 10 - <span id="leaderboard-title">Tema</span>
-                    </h3>
-                    <ul id="leaderboard-list" class="text-left space-y-2">
-                        <!-- Leaderboard items -->
-                    </ul>
-                </div>
-
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button onclick="playAgain()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-sm">
-                        Jogar Tema Novamente
-                    </button>
-                    <button onclick="returnToMenu()" id="back-menu-btn" class="text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md">
-                        Voltar ao Menu Principal
-                    </button>
-                </div>
-            </div>
-
         </div>
+
+        <!-- TELA 2: NOME DO JOGADOR -->
+        <div id="name-screen" class="screen flex-col items-center w-full">
+            <button onclick="showScreen('menu-screen')" class="self-start text-sm text-slate-500 hover:text-slate-800 mb-4 flex items-center">
+                ← Voltar ao Menu
+            </button>
+            <div id="theme-icon" class="text-5xl mb-4"></div>
+            <h2 id="theme-title" class="text-3xl font-bold text-slate-800 mb-2">Tema</h2>
+            <p class="text-slate-500 mb-8 text-center">10 perguntas sorteadas de um banco de 30.<br>Boa sorte!</p>
+            
+            <div class="w-full max-w-sm">
+                <input type="text" id="playerName" placeholder="O seu nome..." class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-slate-500 focus:outline-none mb-4 text-center text-lg bg-white/50">
+                <button onclick="startGame()" id="start-btn" class="w-full py-3 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    Começar Desafio
+                </button>
+                <button onclick="showLeaderboardFromTheme()" class="w-full py-3 mt-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-100 transition-all">
+                    Ver Top 10
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA 3: QUIZ -->
+        <div id="quiz-screen" class="screen flex-col w-full">
+            <div class="flex justify-between items-center mb-6">
+                <span id="question-counter" class="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Pergunta 1/10</span>
+                <span id="score-display" class="text-sm font-bold px-3 py-1 rounded-full text-white">Pontuação: 0</span>
+            </div>
+            
+            <div class="w-full bg-slate-200 rounded-full h-2 mb-6 overflow-hidden">
+                <div id="progress-bar" class="h-2 rounded-full transition-all duration-300 w-0"></div>
+            </div>
+
+            <h3 id="question-text" class="text-xl md:text-2xl font-bold text-slate-800 mb-8 min-h-[80px]"></h3>
+            
+            <div id="options-container" class="flex flex-col gap-3">
+                <!-- Opções serão injetadas aqui -->
+            </div>
+        </div>
+
+        <!-- TELA 4: RESULTADO -->
+        <div id="result-screen" class="screen flex-col items-center w-full">
+            <div class="text-6xl mb-4" id="result-emoji">🏆</div>
+            <h2 class="text-3xl font-bold text-slate-800 mb-2">Fim de Jogo!</h2>
+            <p id="result-message" class="text-lg text-slate-600 text-center mb-6"></p>
+            
+            <div class="text-5xl font-bold mb-8" id="final-score"></div>
+            
+            <div class="flex gap-4 w-full max-w-sm">
+                <button onclick="showScreen('menu-screen')" class="flex-1 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all">
+                    Menu Inicial
+                </button>
+                <button onclick="showLeaderboardFromTheme()" id="btn-ranking-result" class="flex-1 py-3 rounded-xl text-white font-bold shadow-lg transition-all hover:opacity-90">
+                    Ver Ranking
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA 5: LEADERBOARD -->
+        <div id="leaderboard-screen" class="screen flex-col w-full">
+            <button onclick="showScreen('menu-screen')" class="self-start text-sm text-slate-500 hover:text-slate-800 mb-2">
+                ← Voltar ao Menu
+            </button>
+            <h2 id="leaderboard-title" class="text-2xl font-bold text-center mb-6 pb-4 border-b-2 border-slate-100">Top 10 - Tema</h2>
+            
+            <div id="leaderboard-list" class="flex flex-col gap-2 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <!-- Ranking injetado aqui -->
+            </div>
+            
+            <button onclick="document.getElementById('name-screen').classList.add('active'); document.getElementById('leaderboard-screen').classList.remove('active');" class="w-full py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all">
+                Tentar Novamente
+            </button>
+        </div>
+
     </div>
 
     <script>
-        // Database of Questions (30 per topic)
-        const questionBanks = {
-            // FUNÇÃO AFIM (30 Questions)
+        // --- BASE DE DADOS DE PERGUNTAS (30 por tema) ---
+        const questionBank = {
             afim: [
-                { question: "Qual é a forma geral de uma função afim?", options: ["f(x) = ax² + bx + c", "f(x) = ax + b", "f(x) = a^x", "f(x) = log(x)"], answer: 1 },
-                { question: "Na função f(x) = 3x - 5, qual é o coeficiente linear?", options: ["3", "-5", "5", "x"], answer: 1 },
-                { question: "Na função f(x) = -2x + 4, qual é o coeficiente angular?", options: ["-2", "4", "2", "-4"], answer: 0 },
-                { question: "O gráfico de uma função afim é sempre uma:", options: ["Parábola", "Hipérbole", "Reta", "Curva exponencial"], answer: 2 },
-                { question: "Como encontramos a raiz (ou zero) da função f(x) = ax + b?", options: ["Fazendo x = 0", "Fazendo f(x) = 0", "Fazendo a = 0", "Fazendo b = 0"], answer: 1 },
-                { question: "Qual é a raiz da função f(x) = 2x - 8?", options: ["-4", "4", "8", "-8"], answer: 1 },
-                { question: "Uma função afim é considerada crescente quando o coeficiente angular (a) é:", options: ["Maior que zero (a > 0)", "Menor que zero (a < 0)", "Igual a zero (a = 0)", "Igual a um (a = 1)"], answer: 0 },
-                { question: "A função f(x) = -5x + 10 é:", options: ["Crescente", "Decrescente", "Constante", "Quadrática"], answer: 1 },
-                { question: "O ponto onde a reta corta o eixo y (ordenadas) corresponde ao valor numérico de qual coeficiente?", options: ["Angular (a)", "Linear (b)", "Raiz", "Delta"], answer: 1 },
-                { question: "Em qual ponto a reta da função f(x) = 4x + 12 intercepta o eixo y?", options: ["(0, 4)", "(12, 0)", "(0, 12)", "(-3, 0)"], answer: 2 },
-                { question: "Qual o zero da função f(x) = -3x + 15?", options: ["5", "-5", "3", "-15"], answer: 0 },
-                { question: "Uma corrida de táxi tem bandeirada de R$ 5,00 e custo de R$ 2,00 por km rodado. A função que representa o valor a pagar por 'x' km é:", options: ["f(x) = 5x + 2", "f(x) = 2x + 5", "f(x) = 7x", "f(x) = 2x - 5"], answer: 1 },
-                { question: "Se f(x) = 3x + 2, qual o valor de f(4)?", options: ["14", "10", "12", "9"], answer: 0 },
-                { question: "Para que valor de x temos f(x) = 10 na função f(x) = 2x - 4?", options: ["3", "7", "5", "14"], answer: 1 },
-                { question: "Se uma reta passa pela origem do plano cartesiano, qual o valor do coeficiente b?", options: ["1", "-1", "Não existe", "Zero (0)"], answer: 3 },
-                { question: "Como chamamos uma função afim onde o coeficiente b = 0 (ex: f(x) = ax)?", options: ["Função Constante", "Função Linear", "Função Quadrática", "Função Identidade"], answer: 1 },
-                { question: "Se a função é constante, f(x) = 5, qual é o seu coeficiente angular?", options: ["5", "1", "0", "-5"], answer: 2 },
-                { question: "Determine a lei da função afim sabendo que f(0) = 3 e f(1) = 5.", options: ["f(x) = 2x + 3", "f(x) = 3x + 2", "f(x) = 5x + 3", "f(x) = -2x + 3"], answer: 0 },
-                { question: "A raiz da função f(x) = x/2 - 4 é:", options: ["2", "4", "8", "-8"], answer: 2 },
-                { question: "Se f(x) = -x + 7, o gráfico intercepta o eixo x no ponto:", options: ["(0, 7)", "(7, 0)", "(-7, 0)", "(0, -7)"], answer: 1 },
-                { question: "O lucro L de uma empresa por peça vendida (x) é dado por L(x) = 15x - 300. Qual a quantidade mínima para não ter prejuízo?", options: ["10", "15", "20", "30"], answer: 2 },
-                { question: "Se duas retas têm o mesmo coeficiente angular, elas são:", options: ["Perpendiculares", "Concorrentes", "Paralelas", "Coincidentes"], answer: 2 },
-                { question: "Qual a função cuja reta passa pelos pontos (1, 2) e (2, 4)?", options: ["f(x) = x + 1", "f(x) = 2x", "f(x) = 3x - 1", "f(x) = x/2"], answer: 1 },
-                { question: "O salário de um vendedor é R$ 1500,00 fixos mais 5% de comissão sobre as vendas (x). A função é:", options: ["f(x) = 1500 + 5x", "f(x) = 1500 + 0,05x", "f(x) = 1500x + 0.5", "f(x) = 0,5x + 1500"], answer: 1 },
-                { question: "Para f(x) = -4x + 20, f(5) é igual a:", options: ["-40", "0", "40", "15"], answer: 1 },
-                { question: "Qual destas funções é decrescente?", options: ["f(x) = 0,5x - 1", "f(x) = 2x + 10", "f(x) = -0,1x + 5", "f(x) = x"], answer: 2 },
-                { question: "Seja f(x) = mx + n. Se f(x) é crescente, então:", options: ["m > 0", "n > 0", "m < 0", "n < 0"], answer: 0 },
-                { question: "A equação da reta que corta o eixo y em 5 e tem raiz 5 é:", options: ["f(x) = x + 5", "f(x) = -x + 5", "f(x) = 5x + 5", "f(x) = x - 5"], answer: 1 },
-                { question: "Resolva a inequação associada à função: 2x - 6 > 0.", options: ["x > 3", "x < 3", "x > -3", "x = 3"], answer: 0 },
-                { question: "A função que converte Celsius (C) em Fahrenheit (F) é F = 1,8C + 32. Trata-se de uma função:", options: ["Quadrática", "Exponencial", "Logarítmica", "Afim"], answer: 3 }
+                { q: "Qual é o declive (coeficiente angular) da função f(x) = -3x + 5?", o: ["-3", "5", "2", "-5"], a: 0 },
+                { q: "Em que ponto o gráfico da função f(x) = 2x - 8 interseta o eixo das ordenadas (eixo y)?", o: ["(0, 8)", "(0, -8)", "(4, 0)", "(-4, 0)"], a: 1 },
+                { q: "Qual é o zero (raiz) da função f(x) = 4x - 12?", o: ["x = -3", "x = 4", "x = 3", "x = 12"], a: 2 },
+                { q: "Uma função afim é dada por f(x) = ax + b. Se f(0) = 3 e f(1) = 5, qual é o valor de a?", o: ["2", "3", "5", "8"], a: 0 },
+                { q: "A função f(x) = -x + 4 é estritamente:", o: ["Crescente", "Constante", "Decrescente", "Nula"], a: 2 },
+                { q: "Se f(x) = 5x - 2, qual é o valor de f(3)?", o: ["13", "15", "17", "10"], a: 0 },
+                { q: "O gráfico de uma função afim é sempre uma:", o: ["Parábola", "Hipérbole", "Reta", "Circunferência"], a: 2 },
+                { q: "Qual a equação da reta que passa pela origem e tem declive igual a 4?", o: ["y = 4x + 4", "y = x + 4", "y = 4x", "y = -4x"], a: 2 },
+                { q: "O custo C de uma corrida de táxi é dado por C(x) = 2 + 1.5x, onde x são os km rodados. Qual o custo de 10 km?", o: ["15", "17", "20", "12"], a: 1 },
+                { q: "Em f(x) = ax + b, o parâmetro 'b' é chamado de:", o: ["Coeficiente angular", "Zero da função", "Coeficiente linear (ordenada na origem)", "Vértice"], a: 2 },
+                { q: "Qual é a função cuja raiz é 5 e a ordenada na origem é -10?", o: ["f(x) = 2x - 10", "f(x) = -2x - 10", "f(x) = 5x - 10", "f(x) = -10x + 5"], a: 0 },
+                { q: "Se duas retas y = 2x + 1 e y = ax - 3 são paralelas, o valor de a é:", o: ["-2", "2", "0.5", "-0.5"], a: 1 },
+                { q: "Qual o ponto de interseção das retas y = x + 2 e y = -x + 4?", o: ["(1, 3)", "(2, 4)", "(3, 1)", "(0, 2)"], a: 0 },
+                { q: "A função f(x) = 7 é uma função afim classificada como:", o: ["Crescente", "Decrescente", "Constante", "Identidade"], a: 2 },
+                { q: "Qual o declive da reta que passa pelos pontos A(1, 2) e B(3, 8)?", o: ["2", "3", "4", "6"], a: 1 },
+                { q: "Se f(x) = -2x + b e f(2) = 0, qual o valor de b?", o: ["2", "-4", "4", "0"], a: 2 },
+                { q: "O gráfico de f(x) = 3x - 6 interseta o eixo das abcissas (eixo x) no ponto:", o: ["(2, 0)", "(0, -6)", "(-2, 0)", "(0, 2)"], a: 0 },
+                { q: "Para que valores de x a função f(x) = 2x - 4 é positiva?", o: ["x < 2", "x > 2", "x > -2", "x < -2"], a: 1 },
+                { q: "Dada f(x) = ax + b, se a > 0, o ângulo que a reta faz com o eixo x é:", o: ["Obtuso", "Agudo", "Reto", "Raso"], a: 1 },
+                { q: "Seja f(x) = x/2 + 1. Qual o valor de f(4)?", o: ["3", "4", "2", "5"], a: 0 },
+                { q: "Qual é a função inversa de f(x) = 2x - 4?", o: ["f⁻¹(x) = (x/2) + 2", "f⁻¹(x) = x - 4", "f⁻¹(x) = 2x + 4", "f⁻¹(x) = -2x + 4"], a: 0 },
+                { q: "Uma reta é horizontal. O seu declive é:", o: ["Positivo", "Negativo", "Zero", "Infinito"], a: 2 },
+                { q: "A função f(x) = x é conhecida como:", o: ["Função constante", "Função identidade", "Função quadrática", "Função inversa"], a: 1 },
+                { q: "O gráfico de f(x) = -4x + 8 forma com os eixos coordenados um triângulo. Qual a área desse triângulo?", o: ["8", "16", "4", "32"], a: 0 },
+                { q: "Qual é a equação da reta paralela a y = 3x e que passa pelo ponto (0, 5)?", o: ["y = -3x + 5", "y = 3x - 5", "y = 3x + 5", "y = 5x + 3"], a: 2 },
+                { q: "Seja f(x) = 3x + p. Se o gráfico passa por (2, 10), p é igual a:", o: ["2", "4", "6", "8"], a: 1 },
+                { q: "As funções f(x) = 2x + 1 e g(x) = -0.5x + 3 são retas:", o: ["Coincidentes", "Paralelas", "Perpendiculares", "Nenhuma das anteriores"], a: 2 },
+                { q: "O declive de f(x) = 5 - x é:", o: ["5", "1", "-1", "-5"], a: 2 },
+                { q: "Se o custo fixo é 100€ e o custo variável é 5€ por unidade x, a função custo é:", o: ["C(x) = 100x + 5", "C(x) = 5x + 100", "C(x) = 105x", "C(x) = 100 - 5x"], a: 1 },
+                { q: "Qual a ordenada na origem de f(x) = (3x - 9) / 3?", o: ["-9", "-3", "3", "0"], a: 1 }
             ],
-
-            // FUNÇÃO QUADRÁTICA (30 Questions)
             quadratica: [
-                { question: "Qual é a forma geral de uma função quadrática?", options: ["f(x) = ax + b", "f(x) = ax² + bx + c", "f(x) = a^x", "f(x) = |x|"], answer: 1 },
-                { question: "O gráfico de uma função quadrática é sempre uma:", options: ["Reta", "Hipérbole", "Parábola", "Circunferência"], answer: 2 },
-                { question: "Na função f(x) = ax² + bx + c, se o 'a' é positivo (a > 0), a concavidade da parábola é voltada para:", options: ["Baixo", "Cima", "Direita", "Esquerda"], answer: 1 },
-                { question: "Se o coeficiente 'a' for negativo (a < 0), a função quadrática admite um ponto de:", options: ["Mínimo", "Máximo", "Inflexão", "Raiz dupla"], answer: 1 },
-                { question: "A fórmula para calcular o discriminante (Delta ou Δ) de uma equação do 2º grau é:", options: ["Δ = b² + 4ac", "Δ = -b ± √Δ", "Δ = b² - 4ac", "Δ = 2a / b"], answer: 2 },
-                { question: "Quantas raízes reais distintas tem uma função quadrática cujo Δ é positivo (Δ > 0)?", options: ["Nenhuma", "Uma", "Duas", "Infinitas"], answer: 2 },
-                { question: "Se Δ < 0, o que podemos afirmar sobre as raízes da função?", options: ["Possui duas raízes iguais", "Não possui raízes reais", "A raiz é sempre zero", "Possui duas raízes reais distintas"], answer: 1 },
-                { question: "A fórmula para encontrar a coordenada x do vértice (Xv) é:", options: ["-b / 2a", "-Δ / 4a", "b / 2a", "Δ / 2a"], answer: 0 },
-                { question: "A fórmula para encontrar a coordenada y do vértice (Yv) é:", options: ["-b / 2a", "-Δ / 4a", "b² - 4ac", "-b / 4a"], answer: 1 },
-                { question: "O ponto onde a parábola corta o eixo y é definido pelo valor do coeficiente:", options: ["a", "b", "c", "x"], answer: 2 },
-                { question: "Quais são as raízes da função f(x) = x² - 5x + 6?", options: ["2 e -3", "-2 e -3", "2 e 3", "-2 e 3"], answer: 2 },
-                { question: "Qual é a raiz da função f(x) = x² - 4?", options: ["2 e 4", "-2 e 2", "apenas 2", "apenas -2"], answer: 1 },
-                { question: "Na função f(x) = 2x² - 8x + 1, a concavidade é voltada para cima ou para baixo?", options: ["Cima", "Baixo", "Depende de x", "Não tem concavidade"], answer: 0 },
-                { question: "Calcule o Xv da função f(x) = x² - 4x + 3.", options: ["4", "-2", "2", "-4"], answer: 2 },
-                { question: "Qual é o valor mínimo da função f(x) = x² - 6x + 9?", options: ["0", "3", "9", "-3"], answer: 0 },
-                { question: "Dada a função f(x) = -x² + 2x + 3, calcule as raízes.", options: ["1 e -3", "-1 e 3", "2 e 3", "-1 e -3"], answer: 1 },
-                { question: "Em qual ponto a parábola f(x) = 3x² + 2x - 7 corta o eixo das ordenadas (y)?", options: ["(0, 3)", "(0, 2)", "(0, -7)", "(-7, 0)"], answer: 2 },
-                { question: "Se a soma das raízes de uma equação quadrática é -b/a, qual a soma das raízes de x² - 7x + 10 = 0?", options: ["10", "-7", "7", "-10"], answer: 2 },
-                { question: "O produto das raízes é dado por c/a. Qual o produto das raízes de 2x² - 5x + 8 = 0?", options: ["-5", "4", "8", "2"], answer: 1 },
-                { question: "Qual o vértice da parábola definida por f(x) = -x² + 4x?", options: ["(2, 4)", "(4, 2)", "(-2, -4)", "(2, -4)"], answer: 0 },
-                { question: "Um projétil é lançado. Sua altura h em função do tempo t é h(t) = -5t² + 20t. Quando ele atinge a altura máxima?", options: ["t = 4", "t = 2", "t = 20", "t = 5"], answer: 1 },
-                { question: "Qual é a altura máxima atingida pelo projétil do exercício anterior (h(t) = -5t² + 20t)?", options: ["20", "15", "10", "40"], answer: 0 },
-                { question: "A função f(x) = (x-2)² tem quantas raízes reais?", options: ["Duas distintas", "Nenhuma", "Uma (raiz dupla)", "Três"], answer: 2 },
-                { question: "Se f(x) = x² + c passa pela origem, qual o valor de c?", options: ["1", "-1", "Não se pode saber", "0"], answer: 3 },
-                { question: "Quais as raízes de f(x) = x² + x - 12?", options: ["-4 e 3", "4 e -3", "3 e 4", "-3 e -4"], answer: 0 },
-                { question: "A expressão b² - 4ac resultou em zero. O gráfico da função:", options: ["Corta o eixo x duas vezes", "Não toca o eixo x", "Tange (toca em um ponto) o eixo x", "Corta apenas o eixo y"], answer: 2 },
-                { question: "Se f(2) = 0 e f(-2) = 0, a equação pode ser do tipo:", options: ["f(x) = x² - 4", "f(x) = x² + 4", "f(x) = 2x - 4", "f(x) = -x + 4"], answer: 0 },
-                { question: "O eixo de simetria de uma parábola passa sempre por qual ponto?", options: ["Origem", "Raízes", "Vértice", "Interseção com y"], answer: 2 },
-                { question: "A receita de uma empresa é R(x) = -2x² + 120x. O valor de x para receita máxima é:", options: ["60", "30", "120", "15"], answer: 1 },
-                { question: "Qual o sinal das raízes de f(x) = x² + 5x + 6?", options: ["Ambas positivas", "Uma positiva, uma negativa", "Ambas negativas", "Complexas"], answer: 2 }
+                { q: "Na função f(x) = ax² + bx + c, qual parâmetro determina a concavidade da parábola?", o: ["O valor de b", "O valor de c", "O valor de a", "O discriminante (Delta)"], a: 2 },
+                { q: "Quais são as coordenadas do vértice da parábola f(x) = x² - 4x + 3?", o: ["(2, -1)", "(-2, 1)", "(2, 3)", "(4, -1)"], a: 0 },
+                { q: "Se o discriminante (Δ) de uma equação quadrática for negativo (< 0), a função:", o: ["Tem duas raízes reais iguais", "Tem duas raízes reais distintas", "Não interseta o eixo y", "Não tem raízes reais"], a: 3 },
+                { q: "Onde o gráfico de f(x) = 2x² + 5x - 7 interseta o eixo y?", o: ["Em (0, 2)", "Em (0, 5)", "Em (0, -7)", "Em (-7, 0)"], a: 2 },
+                { q: "Quais são as raízes da função f(x) = x² - 5x + 6?", o: ["-2 e -3", "2 e 3", "1 e 6", "-1 e -6"], a: 1 },
+                { q: "Se 'a' for menor que zero (a < 0), o vértice da parábola representa um ponto de:", o: ["Mínimo", "Máximo", "Inflexão", "Raiz"], a: 1 },
+                { q: "A equação do eixo de simetria da parábola f(x) = ax² + bx + c é:", o: ["x = -b / (2a)", "x = -b / a", "x = -Delta / (4a)", "x = c / a"], a: 0 },
+                { q: "Qual o valor mínimo da função f(x) = x² - 6x + 9?", o: ["9", "3", "0", "-9"], a: 2 },
+                { q: "A soma das raízes da função f(x) = 2x² - 8x + 5 é:", o: ["-4", "4", "8", "-8"], a: 1 },
+                { q: "O produto das raízes de f(x) = 3x² - 7x + 12 é:", o: ["4", "12", "-7/3", "-4"], a: 0 },
+                { q: "O gráfico de f(x) = (x - 2)² + 1 tem o vértice no ponto:", o: ["(-2, 1)", "(2, 1)", "(2, -1)", "(0, 1)"], a: 1 },
+                { q: "Se uma parábola tangencia o eixo x, o seu discriminante (Δ) é:", o: ["Positivo", "Negativo", "Igual a zero", "Impossível determinar"], a: 2 },
+                { q: "Qual destas funções é uma função quadrática incompleta?", o: ["f(x) = x² + x + 1", "f(x) = 3x² - 5", "f(x) = 2x + 3", "f(x) = x³ - x²"], a: 1 },
+                { q: "Se f(x) = -x² + 4, as raízes são:", o: ["2 e -2", "4 e -4", "0 e 4", "Não tem raízes"], a: 0 },
+                { q: "A função f(x) = x² - 4 é simétrica em relação ao eixo:", o: ["Das abcissas (x)", "Das ordenadas (y)", "À reta y = x", "À origem"], a: 1 },
+                { q: "O ponto (-1, 0) é raiz de qual destas funções?", o: ["f(x) = x² + 1", "f(x) = x² - x", "f(x) = x² + 2x + 1", "f(x) = x² - 2x + 1"], a: 2 },
+                { q: "Para que f(x) = x² + mx + 9 tenha uma única raiz real, m pode ser:", o: ["3 ou -3", "6 ou -6", "9 ou -9", "0"], a: 1 },
+                { q: "Um objeto é lançado e a sua altura h em função do tempo t é h(t) = -5t² + 20t. Qual a altura máxima?", o: ["15", "20", "25", "30"], a: 1 },
+                { q: "No mesmo lançamento h(t) = -5t² + 20t, em que tempo t atinge a altura máxima?", o: ["2s", "4s", "5s", "10s"], a: 0 },
+                { q: "O gráfico de f(x) = -3x² abre para:", o: ["Cima", "Baixo", "Direita", "Esquerda"], a: 1 },
+                { q: "A área de um quadrado de lado x é A(x) = x². Qual o domínio desta função num contexto real?", o: ["x > 0", "Todos os reais", "x < 0", "x >= 1"], a: 0 },
+                { q: "Qual a equação da parábola com vértice na origem e que passa por (1, 2)?", o: ["y = x²", "y = 2x²", "y = 0.5x²", "y = 4x²"], a: 1 },
+                { q: "A ordenada do vértice é dada por:", o: ["-b / (2a)", "-Delta / (4a)", "c / a", "-b / a"], a: 1 },
+                { q: "Quantas vezes a função f(x) = x² + 4 interseta o eixo x?", o: ["Duas vezes", "Uma vez", "Nenhuma", "Infinitas vezes"], a: 2 },
+                { q: "Se as raízes são -1 e 5, e a = 1, qual é a função?", o: ["f(x) = x² - 4x - 5", "f(x) = x² + 4x - 5", "f(x) = x² - 6x + 5", "f(x) = x² + 6x - 5"], a: 0 },
+                { q: "O ponto (0, c) num gráfico quadrático indica sempre:", o: ["O vértice", "Uma raiz", "A interseção com o eixo y", "A interseção com o eixo x"], a: 2 },
+                { q: "A diferença entre as raízes de f(x) = x² - 7x + 10 é:", o: ["2", "3", "5", "7"], a: 1 },
+                { q: "Se a função f(x) = ax² + bx + c passa pela origem, então:", o: ["a = 0", "b = 0", "c = 0", "Delta = 0"], a: 2 },
+                { q: "Qual o valor de f(2) para f(x) = 2x² - 3x + 1?", o: ["1", "3", "5", "7"], a: 1 },
+                { q: "Se f(x) = x² e g(x) = x² + 3, o gráfico de g(x) é obtido de f(x) por:", o: ["Deslocamento lateral", "Reflexão", "Translação horizontal", "Translação vertical de 3 unidades para cima"], a: 3 }
             ],
-
-            // FUNÇÃO EXPONENCIAL (30 Questions)
             exponencial: [
-                { question: "Qual a forma básica de uma função exponencial?", options: ["f(x) = ax²", "f(x) = a^x", "f(x) = x^a", "f(x) = log_a(x)"], answer: 1 },
-                { question: "Para que f(x) = a^x seja uma função exponencial válida, a base 'a' deve ser:", options: ["a > 0", "a > 1", "a > 0 e a ≠ 1", "a ≠ 0"], answer: 2 },
-                { question: "Se a base 'a' for maior que 1 (a > 1), a função f(x) = a^x é:", options: ["Crescente", "Decrescente", "Constante", "Oscilante"], answer: 0 },
-                { question: "Se a base 'a' estiver entre 0 e 1 (0 < a < 1), a função f(x) = a^x é:", options: ["Crescente", "Decrescente", "Constante", "Não existe"], answer: 1 },
-                { question: "Qualquer função exponencial do tipo f(x) = a^x intercepta o eixo y em qual ponto?", options: ["(1, 0)", "(0, a)", "(a, 0)", "(0, 1)"], answer: 3 },
-                { question: "Por que f(x) = 1^x não é considerada uma função exponencial?", options: ["Porque é uma parábola", "Porque resulta sempre em 1 (função constante)", "Porque não tem raiz", "Porque é negativa"], answer: 1 },
-                { question: "Resolva a equação exponencial: 2^x = 16.", options: ["3", "4", "5", "8"], answer: 1 },
-                { question: "Resolva: 3^x = 81.", options: ["3", "4", "9", "27"], answer: 1 },
-                { question: "Na regra das potências, o que acontece com os expoentes na multiplicação de mesma base (a^m × a^n)?", options: ["Subtraem-se", "Multiplicam-se", "Somam-se", "Dividem-se"], answer: 2 },
-                { question: "O que representa a expressão a^-n?", options: ["-a^n", "1 / (a^n)", "0", "n^a"], answer: 1 },
-                { question: "Resolva: 5^x = 1/25.", options: ["-2", "2", "-5", "1/5"], answer: 0 },
-                { question: "Qual o valor de 7^0?", options: ["7", "0", "1", "Inexistente"], answer: 2 },
-                { question: "Se f(x) = 2^x, quanto é f(5)?", options: ["10", "25", "32", "64"], answer: 2 },
-                { question: "A função que modela juros compostos, M = C.(1+i)^t, é uma aplicação de função:", options: ["Afim", "Logarítmica", "Quadrática", "Exponencial"], answer: 3 },
-                { question: "O gráfico de f(x) = 2^x cruza o eixo x?", options: ["Sim, no ponto (0,0)", "Sim, na raiz", "Não, o eixo x é uma assíntota", "Depende do valor de x"], answer: 2 },
-                { question: "Resolva: (1/3)^x = 9.", options: ["-2", "2", "-3", "3"], answer: 0 },
-                { question: "Dada f(x) = 4^(x-1), qual o valor de f(3)?", options: ["8", "16", "64", "4"], answer: 1 },
-                { question: "Uma bactéria dobra sua população a cada hora. Começando com 1, qual a população após 10 horas?", options: ["20", "100", "512", "1024"], answer: 3 },
-                { question: "Qual a função que representa o decaimento radioativo (onde a base é 1/2)?", options: ["f(t) = C*(1/2)^t", "f(t) = C*2t", "f(t) = 1/2*t", "f(t) = log(1/2)"], answer: 0 },
-                { question: "Se 10^x = 1000, então x é:", options: ["2", "3", "4", "100"], answer: 1 },
-                { question: "A igualdade 2^(3x) = 2^6 implica que:", options: ["3x = 2", "x = 2", "x = 6", "x = 3"], answer: 1 },
-                { question: "Resolva: 4^x = 2^8.", options: ["2", "4", "8", "16"], answer: 1 },
-                { question: "Na potenciação, a propriedade (a^m)^n é igual a:", options: ["a^(m+n)", "a^(m*n)", "a^(m-n)", "a^(m/n)"], answer: 1 },
-                { question: "Qual é a base do logaritmo natural (e), usado em crescimento contínuo?", options: ["~ 3,14", "~ 1,61", "~ 2,71", "10"], answer: 2 },
-                { question: "Para a função f(x) = (0,5)^x, conforme x aumenta, f(x) se aproxima de:", options: ["Infinito", "Zero", "Um", "Menos Infinito"], answer: 1 },
-                { question: "A função f(x) = 3^(-x) é crescente ou decrescente?", options: ["Crescente", "Decrescente", "Constante", "Nenhuma das anteriores"], answer: 1 },
-                { question: "Se 2^x = 32 e 3^y = 27, qual o valor de x + y?", options: ["7", "8", "5", "6"], answer: 1 },
-                { question: "A função f(x) = 2^x + 3 intercepta o eixo y em:", options: ["(0, 1)", "(0, 3)", "(0, 4)", "(0, 2)"], answer: 2 },
-                { question: "Resolva a equação 5^(x+2) = 1.", options: ["0", "1", "-2", "2"], answer: 2 },
-                { question: "O domínio da função exponencial básica f(x) = a^x é:", options: ["x > 0", "Todos os números Reais", "x > 1", "Números inteiros"], answer: 1 }
+                { q: "Qual é a base da função exponencial f(x) = 3^x?", o: ["x", "3", "1", "e"], a: 1 },
+                { q: "Uma função exponencial f(x) = a^x é decrescente quando o valor da base 'a' verifica:", o: ["a > 1", "a < 0", "0 < a < 1", "a = 1"], a: 2 },
+                { q: "Qual é o valor de f(0) para qualquer função do tipo f(x) = a^x (com a > 0 e a ≠ 1)?", o: ["0", "a", "1", "Não está definido"], a: 2 },
+                { q: "O gráfico de f(x) = 2^x tem uma assíntota:", o: ["Vertical em x = 0", "Horizontal em y = 0", "Horizontal em y = 1", "Não tem assíntotas"], a: 1 },
+                { q: "Resolva a equação exponencial: 2^x = 16.", o: ["x = 2", "x = 3", "x = 4", "x = 8"], a: 2 },
+                { q: "Qual destas afirmações sobre o domínio da função f(x) = a^x é verdadeira?", o: ["São todos os números reais (ℝ)", "Apenas reais positivos (ℝ+)", "Reais maiores que 1", "Depende de 'a'"], a: 0 },
+                { q: "Se f(x) = (1/2)^x, quando x cresce, f(x) aproxima-se de:", o: ["Infinito", "1", "0", "-Infinito"], a: 2 },
+                { q: "O valor de 5^(-2) é:", o: ["-10", "-25", "1/10", "1/25"], a: 3 },
+                { q: "Uma população de bactérias duplica a cada hora. Sendo inicial 100, a função do tempo t é:", o: ["P(t) = 100 + 2t", "P(t) = 100 * 2^t", "P(t) = 2 * 100^t", "P(t) = 100^2t"], a: 1 },
+                { q: "Qual a relação entre as bases se a^x = b^y e x = y (diferentes de zero)?", o: ["a = b", "a = 1/b", "a = -b", "a = b²"], a: 0 },
+                { q: "A equação 3^(x+1) = 27 tem solução:", o: ["x = 1", "x = 2", "x = 3", "x = 4"], a: 1 },
+                { q: "A função y = e^x tem como base o Número de Euler. Qual o seu valor aproximado?", o: ["3.14", "1.61", "2.71", "0.69"], a: 2 },
+                { q: "Em relação ao eixo y, os gráficos de f(x) = 2^x e g(x) = (1/2)^x são:", o: ["Simétricos", "Coincidentes", "Perpendiculares", "Paralelos"], a: 0 },
+                { q: "Se f(x) = 10^x, qual o valor de f(-1)?", o: ["-10", "1", "0.1", "0"], a: 2 },
+                { q: "Qual é a imagem da função f(x) = a^x ?", o: ["ℝ", "ℝ+", "ℝ-", "[-1, 1]"], a: 1 },
+                { q: "Se 4^x = 2^6, qual o valor de x?", o: ["2", "3", "4", "6"], a: 1 },
+                { q: "A expressão 2^(x+3) é equivalente a:", o: ["2^x + 2^3", "2^x * 2^3", "(2^x)^3", "6^x"], a: 1 },
+                { q: "O que acontece ao gráfico de f(x) = 2^x + 3 em relação a 2^x?", o: ["Sobe 3 unidades", "Desce 3 unidades", "Move 3 para a direita", "Move 3 para a esquerda"], a: 0 },
+                { q: "Se a substância perde metade da massa a cada ano, decaimento é modelado por base:", o: ["a = 2", "a = -2", "a = 0.5", "a = 0"], a: 2 },
+                { q: "Resolva: 5^(2x) = 1", o: ["x = 0.5", "x = 1", "x = 0", "Impossível"], a: 2 },
+                { q: "Se f(x) = (0.1)^x, f(x) é uma função:", o: ["Crescente", "Decrescente", "Constante", "Não exponencial"], a: 1 },
+                { q: "O ponto (1, 7) pertence ao gráfico de f(x) = a^x. O valor de a é:", o: ["1", "7", "1/7", "7/2"], a: 1 },
+                { q: "A solução de 2^x = -4 é:", o: ["x = -2", "x = 2", "x = 0", "Não tem solução real"], a: 3 },
+                { q: "O crescimento composto de dinheiro é um exemplo de função:", o: ["Afim", "Quadrática", "Exponencial", "Trigonométrica"], a: 2 },
+                { q: "Simplifique: (3^x)²", o: ["3^(x+2)", "3^(2x)", "9^x", "Ambas as opções B e C"], a: 3 },
+                { q: "Se 8^x = 1/2, então x vale:", o: ["-1/3", "-3", "1/3", "3"], a: 0 },
+                { q: "O gráfico de f(x) = e^(-x) representa um:", o: ["Crescimento", "Decaimento", "Movimento periódico", "Ponto"], a: 1 },
+                { q: "Numa função f(x) = c * a^x, 'c' representa:", o: ["A base", "A taxa de crescimento", "O valor inicial (quando x=0)", "A assíntota"], a: 2 },
+                { q: "Se 2^(x-1) = 8, x é igual a:", o: ["2", "3", "4", "5"], a: 2 },
+                { q: "A equação a^x = 0 tem solução para algum 'a' válido?", o: ["Sim, x = 0", "Sim, x = 1", "Não", "Sim, a = 0"], a: 2 }
             ],
-
-            // FUNÇÃO LOGARÍTMICA (30 Questions)
             logaritmica: [
-                { question: "Qual a definição básica de logaritmo? (log_a(b) = c implica em:)", options: ["b^c = a", "a^c = b", "c^a = b", "a^b = c"], answer: 1 },
-                { question: "A função logarítmica f(x) = log_a(x) é a função INVERSA de qual função?", options: ["Quadrática", "Afim", "Exponencial", "Trigonométrica"], answer: 2 },
-                { question: "Na função f(x) = log_a(x), qual é a restrição para a base 'a'?", options: ["a > 0 e a ≠ 1", "a > 1 apenas", "Qualquer a Real", "a < 0"], answer: 0 },
-                { question: "Qual a restrição para o logaritmando 'x' na função real log(x)?", options: ["x > 0", "x pode ser qualquer número", "x ≠ 0", "x < 0"], answer: 0 },
-                { question: "Qual o valor de log_a(1)?", options: ["1", "a", "0", "Indefinido"], answer: 2 },
-                { question: "Qual o valor de log_a(a)?", options: ["0", "1", "a", "Indefinido"], answer: 1 },
-                { question: "Calcule log_2(8).", options: ["4", "3", "16", "2"], answer: 1 },
-                { question: "Calcule log_3(9).", options: ["3", "2", "6", "27"], answer: 1 },
-                { question: "Calcule log_10(1000).", options: ["100", "2", "3", "4"], answer: 2 },
-                { question: "O logaritmo decimal ou comum (escrito apenas 'log x') tem qual base oculta?", options: ["e", "1", "0", "10"], answer: 3 },
-                { question: "O logaritmo neperiano (escrito 'ln x') tem qual base?", options: ["10", "Número de Euler (e)", "Pi (π)", "1"], answer: 1 },
-                { question: "Pela propriedade, log(a × b) é igual a:", options: ["log(a) × log(b)", "log(a) + log(b)", "log(a) - log(b)", "b × log(a)"], answer: 1 },
-                { question: "Pela propriedade, log(a / b) é igual a:", options: ["log(a) - log(b)", "log(a) / log(b)", "log(b) - log(a)", "log(a) + log(b)"], answer: 0 },
-                { question: "Pela propriedade da potência, log(a^n) é igual a:", options: ["a × log(n)", "n × log(a)", "log(n) / a", "log(a) + n"], answer: 1 },
-                { question: "O gráfico de f(x) = log_a(x) (com a>1) intercepta o eixo x no ponto:", options: ["(0, 1)", "(a, 0)", "(1, 0)", "(0, a)"], answer: 2 },
-                { question: "Qual é o valor de log_5(1/25)?", options: ["-2", "2", "-5", "1/2"], answer: 0 },
-                { question: "Se log_2(x) = 5, qual o valor de x?", options: ["10", "25", "32", "64"], answer: 2 },
-                { question: "Qual o domínio da função f(x) = log(x - 3)?", options: ["x > 3", "x < 3", "x ≠ 3", "Todos os Reais"], answer: 0 },
-                { question: "Calcule log_4(2).", options: ["2", "1/2", "8", "-1/2"], answer: 1 },
-                { question: "Como fica a fórmula de mudança de base de log_b(x) para a base 'c'?", options: ["log_c(b) / log_c(x)", "log_c(x) / log_c(b)", "log_c(x) * log_c(b)", "log_b(c)"], answer: 1 },
-                { question: "Se log 2 = 0,30, qual o valor de log 4? (Dica: log 2²)", options: ["0,09", "0,15", "0,60", "0,90"], answer: 2 },
-                { question: "Se log 3 = 0,48, qual o valor aproximado de log 30? (Dica: log(3*10))", options: ["1,48", "0,48", "4,8", "10,48"], answer: 0 },
-                { question: "A função logarítmica f(x) = log_a(x) com base 'a' (0 < a < 1) é:", options: ["Crescente", "Decrescente", "Constante", "Não existe"], answer: 1 },
-                { question: "Se log_x(16) = 2, quem é x?", options: ["8", "4", "2", "32"], answer: 1 },
-                { question: "Qual a solução da equação log(x) + log(2) = log(10)?", options: ["5", "8", "20", "12"], answer: 0 },
-                { question: "Calcule log_10(0,1).", options: ["1", "-1", "0", "10"], answer: 1 },
-                { question: "Se e^x = 5, então x é igual a:", options: ["log_5(e)", "ln(5)", "log(5)", "5^e"], answer: 1 },
-                { question: "A escala Richter, usada para medir terremotos, utiliza qual tipo de função matemática?", options: ["Trigonométrica", "Afim", "Logarítmica", "Quadrática"], answer: 2 },
-                { question: "Qual o resultado de 3^(log_3(5))?", options: ["3", "15", "5", "8"], answer: 2 },
-                { question: "Resolva log_2(x-1) = 3.", options: ["9", "8", "7", "10"], answer: 0 }
+                { q: "Qual é o domínio da função logarítmica f(x) = log_a(x)?", o: ["Todos os reais", "Reais negativos", "Reais positivos (x > 0)", "Reais maiores ou iguais a zero"], a: 2 },
+                { q: "Qual é a base do logaritmo neperiano (ou natural), denotado por ln(x)?", o: ["10", "1", "e (Número de Euler)", "Pi"], a: 2 },
+                { q: "Pela definição de logaritmo, se log_2(x) = 3, qual é o valor de x?", o: ["6", "8", "9", "5"], a: 1 },
+                { q: "O gráfico da função f(x) = log_a(x) interseta o eixo das abcissas (x) no ponto:", o: ["(0, 1)", "(1, 0)", "(a, 0)", "Não interseta"], a: 1 },
+                { q: "A função logarítmica é a função inversa da função:", o: ["Quadrática", "Afim", "Exponencial", "Modular"], a: 2 },
+                { q: "Seja a propriedade log(A * B). Qual a sua forma expandida?", o: ["log(A) * log(B)", "log(A) + log(B)", "log(A) - log(B)", "B * log(A)"], a: 1 },
+                { q: "Qual o valor de log_5(5)?", o: ["0", "1", "5", "25"], a: 1 },
+                { q: "Qual o valor de log_10(1)?", o: ["10", "1", "0", "Indefinido"], a: 2 },
+                { q: "A função f(x) = log_{1/2}(x) é:", o: ["Estritamente crescente", "Estritamente decrescente", "Constante", "Par"], a: 1 },
+                { q: "Se log_3(x) = 2, então:", o: ["x = 3² = 9", "x = 2³ = 8", "x = 3 * 2 = 6", "x = 3 / 2"], a: 0 },
+                { q: "A propriedade log(A^c) é igual a:", o: ["log(A) + c", "log(A) * log(c)", "c * log(A)", "log(A) / c"], a: 2 },
+                { q: "Qual é a assíntota do gráfico de f(x) = log_2(x)?", o: ["Assíntota horizontal y = 0", "Assíntota vertical x = 0", "Assíntota vertical x = 1", "Não tem"], a: 1 },
+                { q: "Qual o valor de log_2(16)?", o: ["2", "4", "8", "16"], a: 1 },
+                { q: "Se log(x) = -1 (base 10), qual o valor de x?", o: ["-10", "0.1", "1", "-0.1"], a: 1 },
+                { q: "A expressão log_a(M / N) é equivalente a:", o: ["log_a(M) / log_a(N)", "log_a(M) - log_a(N)", "log_a(M) + log_a(N)", "N * log_a(M)"], a: 1 },
+                { q: "O pH de uma solução é calculado com logaritmo na base:", o: ["2", "e", "10", "100"], a: 2 },
+                { q: "Em log_a(b) = c, 'a' chama-se base e 'b' chama-se:", o: ["Logaritmo", "Potência", "Logaritmando", "Mantissa"], a: 2 },
+                { q: "Se log_2(x-1) = 3, o valor de x é:", o: ["7", "8", "9", "10"], a: 2 },
+                { q: "A mudança de base log_b(a) para base 'c' é dada por:", o: ["log_c(b) / log_c(a)", "log_c(a) / log_c(b)", "log_c(a) * log_c(b)", "log_c(a) - log_c(b)"], a: 1 },
+                { q: "Qual o logaritmo de 1 em qualquer base a (a > 0 e a ≠ 1)?", o: ["a", "1", "0", "10"], a: 2 },
+                { q: "Se ln(x) = 1, então x é:", o: ["10", "0", "e", "1"], a: 2 },
+                { q: "Os gráficos de y = 2^x e y = log_2(x) são simétricos em relação:", o: ["Ao eixo x", "Ao eixo y", "À reta y = x", "À origem"], a: 2 },
+                { q: "Resolva log_x(25) = 2 (sendo x > 0 e x ≠ 1).", o: ["x = 5", "x = 10", "x = 12.5", "x = 25"], a: 0 },
+                { q: "A função f(x) = log(x) tem uma imagem (contradomínio) que é:", o: ["Apenas reais positivos", "Apenas reais negativos", "Todos os reais (ℝ)", "Intervalo [0, 1]"], a: 2 },
+                { q: "O valor de 10^(log_10(7)) é:", o: ["10", "7", "70", "1"], a: 1 },
+                { q: "Se log_2(8) = x, e log_3(9) = y, o valor de x + y é:", o: ["5", "6", "7", "17"], a: 0 },
+                { q: "Qual o domínio de f(x) = log(x - 3)?", o: ["x > 0", "x > 3", "x >= 3", "x < 3"], a: 1 },
+                { q: "O logaritmo de uma base negativa:", o: ["É sempre negativo", "É sempre positivo", "Não está definido nos Reais", "É zero"], a: 2 },
+                { q: "O valor de log_4(2) é:", o: ["2", "1/2", "-2", "0"], a: 1 },
+                { q: "Num sismógrafo, a escala Richter utiliza a função:", o: ["Afim", "Quadrática", "Seno", "Logarítmica"], a: 3 }
             ]
         };
 
-        // State Variables
-        let playerName = "";
-        let currentTopic = "";
-        let sessionQuestions = [];
+        // --- CONFIGURAÇÕES DE TEMAS ---
+        const themeConfig = {
+            afim: { title: "Função Afim", icon: "📈", colorClass: "text-afim", bg: "bg-blue-500", btn: "bg-blue-500 hover:bg-blue-600" },
+            quadratica: { title: "Função Quadrática", icon: "🎢", colorClass: "text-quadratica", bg: "bg-emerald-500", btn: "bg-emerald-500 hover:bg-emerald-600" },
+            exponencial: { title: "Função Exponencial", icon: "🚀", colorClass: "text-exponencial", bg: "bg-purple-500", btn: "bg-purple-500 hover:bg-purple-600" },
+            logaritmica: { title: "Função Logarítmica", icon: "📉", colorClass: "text-logaritmica", bg: "bg-orange-500", btn: "bg-orange-500 hover:bg-orange-600" }
+        };
+
+        // --- ESTADO DO JOGO ---
+        let currentTheme = '';
+        let playerName = '';
+        let selectedQuestions = [];
         let currentQuestionIndex = 0;
         let score = 0;
-        const pointsPerQuestion = 10;
-        
-        // Leaderboards initialization
-        let leaderboards = JSON.parse(localStorage.getItem('mathQuizLeaderboards')) || {
-            afim: [], quadratica: [], exponencial: [], logaritmica: []
-        };
+        let intervalId;
 
-        // Topic metadata for styling and titles
-        const topicMeta = {
-            afim: { title: "Função Afim", theme: "theme-afim", btnColor: "blue" },
-            quadratica: { title: "Função Quadrática", theme: "theme-quadratica", btnColor: "green" },
-            exponencial: { title: "Função Exponencial", theme: "theme-exponencial", btnColor: "purple" },
-            logaritmica: { title: "Função Logarítmica", theme: "theme-logaritmica", btnColor: "orange" }
-        };
+        // --- FUNÇÕES DE ANIMAÇÃO DE FUNDO ---
+        function createFloatingSymbols(colorClass) {
+            const container = document.getElementById('symbols-container');
+            container.innerHTML = ''; // Limpar símbolos antigos
+            
+            const symbols = ['∫', 'π', '∑', '√', '∞', 'Δ', 'θ', 'f(x)'];
+            const numSymbols = 15;
 
-        // DOM Elements
-        const screens = {
-            menu: document.getElementById('menu-screen'),
-            game: document.getElementById('game-screen'),
-            result: document.getElementById('result-screen')
-        };
-        
-        const nameInput = document.getElementById('player-name');
-        const topicBtns = document.querySelectorAll('.topic-btn');
-        const header = document.getElementById('main-header');
-        
-        const questionText = document.getElementById('question-text');
-        const optionsContainer = document.getElementById('options-container');
-        const questionTracker = document.getElementById('question-tracker');
-        const scoreTracker = document.getElementById('score-tracker');
-        const nextBtn = document.getElementById('next-btn');
-        
-        const resultName = document.getElementById('final-name');
-        const resultScore = document.getElementById('final-score');
-        const leaderboardList = document.getElementById('leaderboard-list');
-        const leaderboardTitle = document.getElementById('leaderboard-title');
-        const scoreBadge = document.getElementById('score-badge');
-        const backMenuBtn = document.getElementById('back-menu-btn');
-
-        // Event Listeners
-        nameInput.addEventListener('input', () => {
-            const isEmpty = nameInput.value.trim().length === 0;
-            topicBtns.forEach(btn => btn.disabled = isEmpty);
-        });
-
-        // Initialize button states
-        topicBtns.forEach(btn => btn.disabled = true);
-        nextBtn.addEventListener('click', nextQuestion);
-
-        // Navigation and Core Logic
-        function showScreen(screenName) {
-            Object.values(screens).forEach(s => {
-                s.classList.add('hidden');
-                s.classList.remove('block');
-            });
-            screens[screenName].classList.remove('hidden');
-            screens[screenName].classList.add('block');
+            for (let i = 0; i < numSymbols; i++) {
+                const el = document.createElement('div');
+                el.innerText = symbols[Math.floor(Math.random() * symbols.length)];
+                el.className = `math-symbol ${colorClass}`;
+                
+                // Posição horizontal aleatória
+                el.style.left = `${Math.random() * 95}vw`;
+                
+                // Atraso e duração aleatórios para não subirem todos juntos
+                const delay = Math.random() * 5;
+                const duration = 10 + Math.random() * 10;
+                
+                el.style.animationDelay = `${delay}s`;
+                el.style.animationDuration = `${duration}s`;
+                
+                container.appendChild(el);
+            }
         }
 
-        function startGame(topic) {
-            playerName = nameInput.value.trim();
-            if (!playerName) return;
+        // Iniciar com símbolos neutros
+        createFloatingSymbols('text-default');
 
-            currentTopic = topic;
+        // --- FUNÇÕES DE NAVEGAÇÃO E JOGO ---
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
             
-            // Set Theme
-            const meta = topicMeta[topic];
-            document.body.className = `bg-gray-50 min-h-screen font-sans text-gray-800 flex items-center justify-center p-4 selection:bg-gray-200 ${meta.theme}`;
-            header.className = `p-6 text-center transition-colors duration-500 bg-${meta.btnColor}-600 text-white`;
+            if(screenId === 'menu-screen') {
+                createFloatingSymbols('text-default');
+            }
+        }
+
+        function selectTheme(themeId) {
+            currentTheme = themeId;
+            const theme = themeConfig[themeId];
             
-            // Apply theme color to Next button and Back Menu button
-            nextBtn.className = `hidden text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-md bg-${meta.btnColor}-600 hover:bg-${meta.btnColor}-700`;
-            backMenuBtn.className = `text-white font-bold py-3 px-8 rounded-lg transition-colors text-lg shadow-md bg-${meta.btnColor}-600 hover:bg-${meta.btnColor}-700`;
-            scoreBadge.className = `inline-block border rounded-full px-8 py-4 mb-6 shadow-sm bg-${meta.btnColor}-50 border-${meta.btnColor}-200`;
-            resultScore.className = `text-5xl font-extrabold text-${meta.btnColor}-600`;
+            // Atualizar UI da tela de nome
+            document.getElementById('theme-icon').innerText = theme.icon;
+            document.getElementById('theme-title').innerText = theme.title;
+            
+            // Estilizar botões baseado no tema
+            const startBtn = document.getElementById('start-btn');
+            startBtn.className = `w-full py-3 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 ${theme.btn}`;
+            
+            const resultBtn = document.getElementById('btn-ranking-result');
+            resultBtn.className = `flex-1 py-3 rounded-xl text-white font-bold shadow-lg transition-all hover:opacity-90 ${theme.btn}`;
 
-            // Shuffle and pick 10 questions from the selected topic
-            const allTopicQs = [...questionBanks[topic]];
-            const shuffled = allTopicQs.sort(() => 0.5 - Math.random());
-            sessionQuestions = shuffled.slice(0, 10);
+            const progress = document.getElementById('progress-bar');
+            progress.className = `h-2 rounded-full transition-all duration-300 w-0 ${theme.bg}`;
 
-            // Reset Game state
-            currentQuestionIndex = 0;
+            // Atualizar fundo animado
+            createFloatingSymbols(theme.colorClass);
+
+            showScreen('name-screen');
+        }
+
+        function startGame() {
+            const nameInput = document.getElementById('playerName').value.trim();
+            if (!nameInput) {
+                alert("Por favor, introduza o seu nome para jogar!");
+                return;
+            }
+            
+            playerName = nameInput;
             score = 0;
+            currentQuestionIndex = 0;
+            
+            // Embaralhar as 30 questões do tema e selecionar as 10 primeiras
+            const allQuestions = [...questionBank[currentTheme]];
+            allQuestions.sort(() => Math.random() - 0.5);
+            selectedQuestions = allQuestions.slice(0, 10);
+            
             updateScoreDisplay();
-            
             loadQuestion();
-            showScreen('game');
+            showScreen('quiz-screen');
         }
 
-        function returnToMenu() {
-            // Reset to default theme
-            document.body.className = "bg-gray-50 min-h-screen font-sans text-gray-800 flex items-center justify-center p-4 selection:bg-gray-200";
-            header.className = "bg-slate-800 text-white p-6 text-center transition-colors duration-500";
-            
-            showScreen('menu');
-        }
-
-        function playAgain() {
-            startGame(currentTopic);
+        function updateScoreDisplay() {
+            const theme = themeConfig[currentTheme];
+            const scoreDisplay = document.getElementById('score-display');
+            scoreDisplay.innerText = `Pontuação: ${score}`;
+            scoreDisplay.className = `text-sm font-bold px-3 py-1 rounded-full text-white ${theme.bg}`;
         }
 
         function loadQuestion() {
-            const q = sessionQuestions[currentQuestionIndex];
+            const q = selectedQuestions[currentQuestionIndex];
             
-            questionTracker.textContent = `Pergunta ${currentQuestionIndex + 1}/${sessionQuestions.length}`;
+            document.getElementById('question-counter').innerText = `Pergunta ${currentQuestionIndex + 1}/10`;
+            document.getElementById('question-text').innerText = q.q;
             
-            // Re-trigger animation
-            questionText.classList.remove('slide-up');
-            void questionText.offsetWidth; // Reflow
-            questionText.classList.add('slide-up');
-            
-            questionText.textContent = q.question;
-            
+            // Atualizar barra de progresso
+            const progress = ((currentQuestionIndex) / 10) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+
+            const optionsContainer = document.getElementById('options-container');
             optionsContainer.innerHTML = '';
-            nextBtn.classList.add('hidden');
-
-            const themeColorClass = `hover:border-${topicMeta[currentTopic].btnColor}-500 hover:bg-${topicMeta[currentTopic].btnColor}-50`;
-
-            q.options.forEach((opt, index) => {
+            
+            q.o.forEach((opt, index) => {
                 const btn = document.createElement('button');
-                btn.className = `option-btn w-full text-left p-4 rounded-xl border-2 border-gray-200 focus:outline-none font-medium text-gray-700 slide-up ${themeColorClass}`;
-                btn.style.animationDelay = `${index * 0.1}s`;
-                
-                const letter = String.fromCharCode(65 + index);
-                btn.innerHTML = `<span class="inline-block w-8 font-bold text-gray-400">${letter}.</span> ${opt}`;
-                
-                btn.onclick = () => selectOption(index, btn);
+                btn.innerText = opt;
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 transition-all text-slate-700 font-medium option-btn';
+                btn.onclick = () => checkAnswer(index, btn);
                 optionsContainer.appendChild(btn);
             });
         }
 
-        function selectOption(selectedIndex, selectedBtn) {
-            const q = sessionQuestions[currentQuestionIndex];
-            const allBtns = optionsContainer.querySelectorAll('button');
-            
-            allBtns.forEach(btn => {
-                btn.disabled = true;
-                btn.classList.remove('hover:bg-blue-50', 'hover:bg-green-50', 'hover:bg-purple-50', 'hover:bg-orange-50');
-            });
+        function checkAnswer(selectedIndex, btnElement) {
+            // Prevenir múltiplos cliques
+            const allBtns = document.getElementById('options-container').querySelectorAll('button');
+            allBtns.forEach(b => b.disabled = true);
 
-            if (selectedIndex === q.answer) {
-                selectedBtn.classList.add('correct-answer');
-                score += pointsPerQuestion;
-                updateScoreDisplay();
+            const q = selectedQuestions[currentQuestionIndex];
+            const correctIndex = q.a;
+
+            if (selectedIndex === correctIndex) {
+                btnElement.classList.add('correct-anim');
+                score += 10;
             } else {
-                selectedBtn.classList.add('wrong-answer');
-                allBtns[q.answer].classList.add('correct-answer', 'opacity-70');
+                btnElement.classList.add('wrong-anim');
+                allBtns[correctIndex].classList.add('correct-anim');
             }
 
-            nextBtn.classList.remove('hidden');
-        }
+            updateScoreDisplay();
 
-        function updateScoreDisplay() {
-            scoreTracker.textContent = `Pontuação: ${score}`;
-        }
-
-        function nextQuestion() {
-            currentQuestionIndex++;
-            if (currentQuestionIndex < sessionQuestions.length) {
-                loadQuestion();
-            } else {
-                endGame();
-            }
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if (currentQuestionIndex < 10) {
+                    loadQuestion();
+                } else {
+                    endGame();
+                }
+            }, 1200);
         }
 
         function endGame() {
-            resultName.textContent = playerName;
-            resultScore.textContent = score;
-            leaderboardTitle.textContent = topicMeta[currentTopic].title;
-            
+            document.getElementById('progress-bar').style.width = `100%`;
             saveScore();
-            renderLeaderboard();
             
-            showScreen('result');
+            const finalScoreEl = document.getElementById('final-score');
+            const resultEmoji = document.getElementById('result-emoji');
+            const resultMsg = document.getElementById('result-message');
+            
+            finalScoreEl.innerText = `${score}/100`;
+            finalScoreEl.className = `text-5xl font-bold mb-8 ${themeConfig[currentTheme].colorClass.replace('/50', '')}`; // usa a cor principal
+            
+            if (score === 100) {
+                resultEmoji.innerText = "🏆";
+                resultMsg.innerText = "Perfeito! Você dominou este conteúdo!";
+            } else if (score >= 70) {
+                resultEmoji.innerText = "🌟";
+                resultMsg.innerText = "Excelente trabalho! Ótimo conhecimento.";
+            } else if (score >= 50) {
+                resultEmoji.innerText = "👍";
+                resultMsg.innerText = "Bom esforço! Mas ainda pode melhorar.";
+            } else {
+                resultEmoji.innerText = "📚";
+                resultMsg.innerText = "Continue a estudar. Tente novamente!";
+            }
+            
+            showScreen('result-screen');
+        }
+
+        // --- SISTEMA DE LEADERBOARD (LOCALSTORAGE) ---
+        function getStorageKey() {
+            return `leaderboard_funcoes_${currentTheme}`;
         }
 
         function saveScore() {
-            const newEntry = { 
-                name: playerName, 
-                score: score, 
-                date: new Date().toLocaleDateString('pt-BR') 
-            };
+            const key = getStorageKey();
+            let leaderboard = JSON.parse(localStorage.getItem(key)) || [];
             
-            // Push to the specific topic leaderboard
-            leaderboards[currentTopic].push(newEntry);
+            leaderboard.push({ name: playerName, score: score, date: new Date().toLocaleDateString('pt-PT') });
             
-            // Sort descending
-            leaderboards[currentTopic].sort((a, b) => b.score - a.score);
+            // Ordenar por pontuação (decrescente)
+            leaderboard.sort((a, b) => b.score - a.score);
             
-            // Keep only top 10
-            leaderboards[currentTopic] = leaderboards[currentTopic].slice(0, 10);
+            // Manter apenas o top 10
+            leaderboard = leaderboard.slice(0, 10);
             
-            // Save to localStorage
-            localStorage.setItem('mathQuizLeaderboards', JSON.stringify(leaderboards));
+            localStorage.setItem(key, JSON.stringify(leaderboard));
         }
 
-        function renderLeaderboard() {
-            leaderboardList.innerHTML = '';
-            const currentBoard = leaderboards[currentTopic];
+        function showLeaderboardFromTheme() {
+            const theme = themeConfig[currentTheme];
+            document.getElementById('leaderboard-title').innerText = `Top 10 - ${theme.title}`;
             
-            if (currentBoard.length === 0) {
-                leaderboardList.innerHTML = '<li class="text-gray-500 text-center py-4">Nenhuma pontuação registrada ainda. Seja o primeiro!</li>';
-                return;
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = '';
+            
+            const key = getStorageKey();
+            let leaderboard = JSON.parse(localStorage.getItem(key)) || [];
+            
+            if (leaderboard.length === 0) {
+                list.innerHTML = '<p class="text-center text-slate-400 py-4">Ainda não há classificações. Seja o primeiro!</p>';
+            } else {
+                leaderboard.forEach((entry, index) => {
+                    const item = document.createElement('div');
+                    let rankClass = "bg-slate-100 text-slate-600";
+                    let rankIcon = `${index + 1}º`;
+                    
+                    if (index === 0) { rankClass = "bg-yellow-100 text-yellow-700 border border-yellow-300"; rankIcon = "🥇"; }
+                    if (index === 1) { rankClass = "bg-gray-200 text-gray-700 border border-gray-300"; rankIcon = "🥈"; }
+                    if (index === 2) { rankClass = "bg-orange-100 text-orange-700 border border-orange-300"; rankIcon = "🥉"; }
+                    
+                    item.className = `flex justify-between items-center p-3 rounded-lg ${rankClass} mb-1`;
+                    item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold w-6 text-center">${rankIcon}</span>
+                            <span class="font-semibold truncate max-w-[120px] md:max-w-[180px]">${entry.name}</span>
+                        </div>
+                        <div class="flex items-center gap-4 text-sm">
+                            <span class="opacity-70 text-xs hidden md:inline">${entry.date}</span>
+                            <span class="font-bold bg-white/50 px-2 py-1 rounded shadow-sm">${entry.score} pts</span>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
             }
-
-            currentBoard.forEach((entry, index) => {
-                const li = document.createElement('li');
-                
-                let rankClass = "bg-white text-gray-700 border-gray-100";
-                let icon = `<span class="w-8 text-center font-bold text-gray-400">${index + 1}º</span>`;
-                
-                if (index === 0) { rankClass = "bg-yellow-50 text-yellow-800 border-yellow-200 font-bold"; icon = '🏆'; } 
-                else if (index === 1) { rankClass = "bg-slate-100 text-slate-800 border-slate-300 font-semibold"; icon = '🥈'; } 
-                else if (index === 2) { rankClass = "bg-orange-50 text-orange-800 border-orange-200 font-semibold"; icon = '🥉'; }
-
-                li.className = `flex justify-between items-center p-3 rounded-lg border ${rankClass} shadow-sm`;
-                li.innerHTML = `
-                    <div class="flex items-center">
-                        <span class="mr-3 w-8 text-center text-lg">${icon}</span>
-                        <span class="truncate max-w-[140px] sm:max-w-[220px]">${entry.name}</span>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs opacity-60 hidden sm:inline">${entry.date}</span>
-                        <span class="font-bold text-lg">${entry.score} pts</span>
-                    </div>
-                `;
-                leaderboardList.appendChild(li);
-            });
+            
+            showScreen('leaderboard-screen');
         }
+
+        // Permitir iniciar o jogo pressionando "Enter" no campo de nome
+        document.getElementById('playerName').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                startGame();
+            }
+        });
     </script>
 </body>
 </html>
+
+
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desafios Matemáticos - Funções</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Fundo quadriculado de caderno */
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: 
+                linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -2;
+        }
+
+        /* Efeito de Vidro (Glassmorphism) */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        /* Animações dos símbolos flutuantes */
+        @keyframes floatUp {
+            0% {
+                transform: translateY(110vh) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% {
+                transform: translateY(-10vh) rotate(360deg) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .math-symbol {
+            position: fixed;
+            font-size: 2.5rem;
+            font-weight: bold;
+            z-index: -1;
+            user-select: none;
+            pointer-events: none;
+            animation: floatUp linear infinite;
+        }
+
+        /* Cores temáticas dos símbolos */
+        .text-afim { color: rgba(59, 130, 246, 0.5); } /* Azul */
+        .text-quadratica { color: rgba(16, 185, 129, 0.5); } /* Verde */
+        .text-exponencial { color: rgba(139, 92, 246, 0.5); } /* Roxo */
+        .text-logaritmica { color: rgba(249, 115, 22, 0.5); } /* Laranja */
+        .text-default { color: rgba(156, 163, 175, 0.5); } /* Cinzento para o menu */
+
+        /* Transições suaves */
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .option-btn {
+            transition: all 0.2s;
+        }
+        .option-btn:hover {
+            transform: translateX(5px);
+        }
+        .correct-anim { animation: pulseGreen 0.5s; background-color: #22c55e !important; color: white !important; border-color: #22c55e !important;}
+        .wrong-anim { animation: shakeRed 0.5s; background-color: #ef4444 !important; color: white !important; border-color: #ef4444 !important;}
+
+        @keyframes pulseGreen { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        @keyframes shakeRed { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    </style>
+</head>
+<body class="text-slate-800 flex items-center justify-center p-4">
+
+    <!-- Fundo base -->
+    <div class="bg-grid"></div>
+    <!-- Recipiente para símbolos matemáticos gerados por JS -->
+    <div id="symbols-container"></div>
+
+    <div class="w-full max-w-2xl glass-panel rounded-3xl p-8 relative overflow-hidden">
+        
+        <!-- TELA 1: MENU PRINCIPAL -->
+        <div id="menu-screen" class="screen active flex-col items-center">
+            <h1 class="text-4xl font-bold mb-2 text-center text-slate-800">Desafios Matemáticos</h1>
+            <p class="text-slate-500 mb-8 text-center">Escolha o conteúdo e teste os seus conhecimentos!</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                <button onclick="selectTheme('afim')" class="p-6 rounded-2xl bg-blue-50 border-2 border-blue-200 hover:border-blue-500 hover:bg-blue-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-blue-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = ax + b</div>
+                    <h2 class="text-xl font-bold text-blue-900">Função Afim</h2>
+                    <p class="text-sm text-blue-700/70 mt-1">Declives, ordenadas na origem e gráficos retilíneos.</p>
+                </button>
+                
+                <button onclick="selectTheme('quadratica')" class="p-6 rounded-2xl bg-emerald-50 border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-emerald-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = ax² + bx + c</div>
+                    <h2 class="text-xl font-bold text-emerald-900">Função Quadrática</h2>
+                    <p class="text-sm text-emerald-700/70 mt-1">Parábolas, vértices e raízes.</p>
+                </button>
+
+                <button onclick="selectTheme('exponencial')" class="p-6 rounded-2xl bg-purple-50 border-2 border-purple-200 hover:border-purple-500 hover:bg-purple-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-purple-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = a˟</div>
+                    <h2 class="text-xl font-bold text-purple-900">Função Exponencial</h2>
+                    <p class="text-sm text-purple-700/70 mt-1">Crescimento, decaimento e propriedades.</p>
+                </button>
+
+                <button onclick="selectTheme('logaritmica')" class="p-6 rounded-2xl bg-orange-50 border-2 border-orange-200 hover:border-orange-500 hover:bg-orange-100 transition-all group relative overflow-hidden text-left">
+                    <div class="text-orange-500 text-3xl mb-2 font-bold group-hover:scale-110 transition-transform">f(x) = logₐ(x)</div>
+                    <h2 class="text-xl font-bold text-orange-900">Função Logarítmica</h2>
+                    <p class="text-sm text-orange-700/70 mt-1">Logaritmos, propriedades e domínios.</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA 2: NOME DO JOGADOR -->
+        <div id="name-screen" class="screen flex-col items-center w-full">
+            <button onclick="showScreen('menu-screen')" class="self-start text-sm text-slate-500 hover:text-slate-800 mb-4 flex items-center">
+                ← Voltar ao Menu
+            </button>
+            <div id="theme-icon" class="text-5xl mb-4"></div>
+            <h2 id="theme-title" class="text-3xl font-bold text-slate-800 mb-2">Tema</h2>
+            <p class="text-slate-500 mb-8 text-center">10 perguntas sorteadas de um banco de 30.<br>Boa sorte!</p>
+            
+            <div class="w-full max-w-sm">
+                <input type="text" id="playerName" placeholder="O seu nome..." class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-slate-500 focus:outline-none mb-4 text-center text-lg bg-white/50">
+                <button onclick="startGame()" id="start-btn" class="w-full py-3 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    Começar Desafio
+                </button>
+                <button onclick="showLeaderboardFromTheme()" class="w-full py-3 mt-3 rounded-xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-100 transition-all">
+                    Ver Top 10
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA 3: QUIZ -->
+        <div id="quiz-screen" class="screen flex-col w-full">
+            <div class="flex justify-between items-center mb-6">
+                <span id="question-counter" class="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Pergunta 1/10</span>
+                <span id="score-display" class="text-sm font-bold px-3 py-1 rounded-full text-white">Pontuação: 0</span>
+            </div>
+            
+            <div class="w-full bg-slate-200 rounded-full h-2 mb-6 overflow-hidden">
+                <div id="progress-bar" class="h-2 rounded-full transition-all duration-300 w-0"></div>
+            </div>
+
+            <h3 id="question-text" class="text-xl md:text-2xl font-bold text-slate-800 mb-8 min-h-[80px]"></h3>
+            
+            <div id="options-container" class="flex flex-col gap-3">
+                <!-- Opções serão injetadas aqui -->
+            </div>
+        </div>
+
+        <!-- TELA 4: RESULTADO -->
+        <div id="result-screen" class="screen flex-col items-center w-full">
